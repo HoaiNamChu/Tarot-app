@@ -1,0 +1,97 @@
+/* ── Constellation canvas ── */
+.constellationCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Shooting stars ── */
+.shooting-star {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1;
+  height: 1px;
+  border-radius: 1px;
+  background: linear-gradient(to right, rgba(200, 169, 110, 0), rgba(200, 169, 110, .9) 60%, #fff);
+  transform-origin: left center;
+  opacity: 0;
+}
+
+.shooting-star::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -2px;
+  width: 4px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 0 6px 2px rgba(200, 169, 110, .6);
+}
+
+@keyframes shootAcross {
+  0% {
+    opacity: 0;
+    transform: scaleX(0) translateX(0)
+  }
+
+  5% {
+    opacity: 1;
+    transform: scaleX(1)
+  }
+
+  85% {
+    opacity: .6
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(1) translateX(var(--travel))
+  }
+}
+
+.ss1 {
+  top: 15%;
+  left: 5%;
+  width: 120px;
+  --travel: 60vw;
+  animation: shootAcross 1.8s ease-out infinite 4s
+}
+
+.ss2 {
+  top: 38%;
+  left: -2%;
+  width: 80px;
+  --travel: 50vw;
+  animation: shootAcross 1.4s ease-out infinite 11s
+}
+
+.ss3 {
+  top: 62%;
+  right: 5%;
+  width: 100px;
+  --travel: -55vw;
+  background: linear-gradient(to left, rgba(200, 169, 110, 0), rgba(200, 169, 110, .9) 60%, #fff);
+  animation: shootAcross 1.6s ease-out infinite 7.5s
+}
+
+.ss4 {
+  top: 22%;
+  right: 10%;
+  width: 60px;
+  --travel: -40vw;
+  background: linear-gradient(to left, rgba(139, 92, 246, 0), rgba(139, 92, 246, .8) 60%, #fff);
+  animation: shootAcross 1.2s ease-out infinite 15s
+}
+
+.ss5 {
+  top: 78%;
+  left: 20%;
+  width: 90px;
+  --travel: 45vw;
+  animation: shootAcross 1.5s ease-out infinite 20s
+}

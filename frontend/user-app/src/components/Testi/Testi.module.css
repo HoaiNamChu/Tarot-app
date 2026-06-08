@@ -1,0 +1,94 @@
+.testi-section {
+    padding: 7rem 3rem;
+    background: var(--ink-2);
+    border-top: 1px solid var(--border-2);
+    position: relative;
+    z-index: 1
+}
+
+.testi-inner {
+    max-width: 900px;
+    margin: 0 auto
+}
+
+.tgrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 3rem
+}
+
+.tc {
+    background: var(--ink-3);
+    border: 1px solid var(--border-2);
+    padding: 1.65rem;
+    position: relative
+}
+
+.tquote {
+    position: absolute;
+    top: .85rem;
+    right: 1.1rem;
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    line-height: 1;
+    color: var(--gold);
+    opacity: .18
+}
+
+.ttext {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: .98rem;
+    font-style: italic;
+    color: var(--cream-2);
+    line-height: 1.75;
+    margin-bottom: 1.1rem
+}
+
+.tauthor {
+    display: flex;
+    align-items: center;
+    gap: .7rem
+}
+
+.adot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--gold-pale);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .7rem;
+    color: var(--gold)
+}
+
+.aname {
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--cream)
+}
+
+.asince {
+    font-size: .62rem;
+    color: var(--muted);
+    letter-spacing: .06em;
+}
+
+.stars {
+    color: var(--gold);
+    font-size: .62rem;
+    margin-bottom: .65rem;
+    letter-spacing: .1em
+}
+
+@media (max-width: 768px) {
+    .testi-section {
+        padding: 4rem 1.5rem;
+    }
+
+    .tgrid {
+        grid-template-columns: 1fr;  /* ← thiếu cái này */
+    }
+}

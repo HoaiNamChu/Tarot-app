@@ -1,0 +1,267 @@
+.booking-section {
+    padding: 7rem 3rem;
+    background: var(--ink-2);
+    border-top: 1px solid var(--border-2);
+    border-bottom: 1px solid var(--border-2);
+    position: relative;
+    z-index: 1;
+}
+
+.booking-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6rem;
+    align-items: start;
+}
+
+.booking-steps {
+    margin-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.bstep {
+    display: flex;
+    gap: 1.2rem;
+    align-items: flex-start;
+}
+
+.bstep-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    font-weight: 400;
+    color: var(--gold);
+    opacity: .32;
+    line-height: 1;
+    min-width: 1.8rem;
+}
+
+.bstep-text h4 {
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--cream);
+    margin-bottom: .2rem;
+}
+
+.bstep-text p {
+    font-size: .82rem;
+    color: var(--muted-2);
+    line-height: 1.6;
+}
+
+.booking-form-wrap {
+    position: relative;
+}
+
+.booking-form {
+    background: var(--ink-3);
+    border: 1px solid var(--border);
+    padding: 2.25rem;
+    position: relative;
+}
+
+.booking-form::before {
+    content: '✦ Đặt Lịch Ngay ✦';
+    position: absolute;
+    top: -.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink-3);
+    padding: 0 1rem;
+    font-size: .62rem;
+    letter-spacing: .25em;
+    color: var(--gold);
+    white-space: nowrap;
+}
+
+.fr {
+    margin-bottom: 1.2rem;
+}
+
+.fr2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.fl {
+    display: block;
+    font-size: .62rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .45rem;
+}
+
+.fi,
+.fsel,
+.fta {
+    width: 100%;
+    background: var(--ink-2);
+    border: 1px solid rgba(200, 169, 110, .15);
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .88rem;
+    padding: .75rem 1rem;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color .3s;
+}
+
+.fi:focus,
+.fsel:focus,
+.fta:focus {
+    border-color: var(--gold);
+}
+
+.fi::placeholder {
+    color: var(--muted);
+}
+
+.fsel {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b5f80' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    cursor: pointer;
+}
+
+.fta {
+    resize: vertical;
+    min-height: 88px;
+    line-height: 1.6;
+}
+
+.form-submit {
+    width: 100%;
+    margin-top: 1.4rem;
+    background: var(--gold);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .73rem;
+    font-weight: 500;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    padding: 1rem;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .3s, transform .2s;
+}
+
+.form-submit:hover {
+    background: var(--gold-2);
+    transform: translateY(-2px);
+}
+
+.booking-lock {
+    position: absolute;
+    inset: 0;
+    background: rgba(13, 11, 18, .88);
+    backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    padding: 2.5rem;
+    text-align: center;
+    border: 1px solid var(--border);
+}
+
+.lock-icon {
+    font-size: 2.2rem;
+    margin-bottom: .75rem;
+    opacity: .75;
+}
+
+.lock-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    color: var(--cream);
+    margin-bottom: .5rem;
+}
+
+.lock-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--muted-2);
+    max-width: 260px;
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+}
+
+.lock-btns {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .booking-section {
+        padding: 4rem 1.5rem;
+    }
+
+    .booking-inner {
+        grid-template-columns: 1fr;
+        gap: 2.5rem;
+    }
+}
+
+.busy-slots {
+    margin-top: 2rem;
+    padding: 1.25rem;
+    background: var(--ink-3);
+    border: 1px solid var(--border-2);
+}
+
+.busy-slots-title {
+    font-size: .65rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--rose);
+    margin-bottom: .85rem;
+}
+
+.busy-slots-list {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.busy-slot-item {
+    font-size: .78rem;
+    color: var(--muted-2);
+    padding: .4rem .75rem;
+    border-left: 2px solid var(--rose);
+    background: rgba(212, 102, 138, .06);
+}
+
+.slot-checking {
+    color: var(--muted-2);
+    font-size: .7rem;
+}
+
+.slot-available {
+    color: #4ade80;
+    font-size: .7rem;
+}
+
+.slot-busy {
+    color: var(--rose);
+    font-size: .7rem;
+}
+
+.fi-error {
+    border-color: var(--rose) !important;
+}
+
+.fi-success {
+    border-color: #4ade80 !important;
+}

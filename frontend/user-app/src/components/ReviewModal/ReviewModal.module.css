@@ -1,0 +1,218 @@
+.review-modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 600;
+    background: rgba(13, 11, 18, .92);
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.review-modal-bg.open {
+    display: flex;
+}
+
+.review-modal {
+    background: var(--ink-2);
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 460px;
+    animation: rmIn .3s ease forwards;
+}
+
+@keyframes rmIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.review-modal-head {
+    padding: 1.5rem 1.75rem 1.25rem;
+    border-bottom: 1px solid var(--border-2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--ink-3);
+}
+
+.review-modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--cream);
+}
+
+.review-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: color .2s;
+}
+
+.review-close:hover {
+    color: var(--cream);
+}
+
+.review-body {
+    padding: 1.5rem 1.75rem;
+}
+
+.review-for {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border-2);
+}
+
+.review-for-em {
+    font-size: 1.75rem;
+}
+
+.review-for-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cream);
+}
+
+.review-for-svc {
+    font-size: .72rem;
+    color: var(--muted-2);
+    margin-top: .15rem;
+}
+
+.review-stars-label {
+    font-size: .62rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .65rem;
+}
+
+.review-stars {
+    display: flex;
+    gap: .35rem;
+    margin-bottom: 1.25rem;
+}
+
+.review-star {
+    font-size: 1.75rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all .15s;
+    line-height: 1;
+}
+
+.review-star:hover,
+.review-star.lit {
+    color: var(--gold);
+    transform: scale(1.1);
+}
+
+.review-label {
+    font-size: .62rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .5rem;
+    display: block;
+}
+
+.review-textarea {
+    width: 100%;
+    background: var(--ink-3);
+    border: 1px solid var(--border-2);
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .88rem;
+    padding: .85rem 1rem;
+    border-radius: 2px;
+    outline: none;
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.65;
+    transition: border-color .25s;
+}
+
+.review-textarea:focus {
+    border-color: var(--gold);
+}
+
+.review-textarea::placeholder {
+    color: var(--muted);
+}
+
+.review-submit {
+    width: 100%;
+    margin-top: 1.25rem;
+    background: var(--gold);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .73rem;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    padding: .95rem;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.review-submit:hover {
+    background: var(--gold-2);
+}
+
+.review-success {
+    display: none;
+    text-align: center;
+    padding: 2rem 1.75rem;
+}
+
+.review-success.show {
+    display: block;
+}
+
+.review-success-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.review-success-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    color: var(--cream);
+    margin-bottom: .5rem;
+}
+
+.review-success-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--muted-2);
+    line-height: 1.7;
+}
+
+@media (max-width: 600px) {
+    .review-body {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .review-modal-head {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
