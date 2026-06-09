@@ -31,6 +31,7 @@ const NAV = [
 export default function Sidebar({ admin, onLogout, onClose, isOpen }) {
     const navigate = useNavigate();
     const initials = admin?.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    
 
     return (
         <aside className={`sidebar${isOpen ? ' open' : ''}`} id="sidebar">

@@ -1,11 +1,18 @@
 <?php
 
-$defaultOrigins = [
-    env('FRONTEND_URL', 'http://localhost:5173'),
-    env('ADMIN_FRONTEND_URL', 'http://localhost:5174'),
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-];
+$defaultOrigins = array_filter([
+    env('FRONTEND_URL'),
+    env('ADMIN_FRONTEND_URL'),
+]);
+
+if (env('APP_ENV') === 'local') {
+    $defaultOrigins = array_merge($defaultOrigins, [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:5174',
+        'http://127.0.0.1:5174',
+    ]);
+}
 
 $allowedOrigins = array_values(array_unique(array_filter(array_map(
     'trim',

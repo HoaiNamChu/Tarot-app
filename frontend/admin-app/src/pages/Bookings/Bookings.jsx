@@ -23,6 +23,8 @@ export default function Bookings() {
             .finally(() => setLoading(false));
     }, [showToast]);
 
+
+
     const rows = filter === 'all' ? bookings : bookings.filter(b => b.status === filter);
 
     async function handleConfirm(id) {
@@ -74,7 +76,7 @@ export default function Bookings() {
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table className="tbl">
-                        <thead><tr><th>ID</th><th>Khách hàng</th><th>Dịch vụ</th><th>Reader</th><th>Thời gian</th><th>Giá</th><th>Kênh</th><th>Trạng thái</th><th></th></tr></thead>
+                        <thead><tr><th>ID</th><th>Khách hàng</th><th>Dịch vụ</th><th>Reader</th><th>Thời gian</th><th>Giá</th><th>Thanh toán</th><th>Trạng thái</th><th></th></tr></thead>
                         <tbody>
                             {rows.map(b => (
                                 <tr key={b.id}>
@@ -95,9 +97,16 @@ export default function Bookings() {
                                     </td>
                                     <td>
                                         <div className="act-row">
-                                            <div className="ic-btn" onClick={() => handleConfirm(b.id)}>✓</div>
-                                            <div className="ic-btn">✎</div>
-                                            <div className="ic-btn del" onClick={() => handleCancel(b.id)}>✕</div>
+                                            {b.status === 'pending' && (
+                                                <div className="ic-btn" title="Xác nhận" onClick={() => handleConfirm(b.id)}>✓</div>
+                                            )}
+                                            {b.status !== 'pending' && (
+                                                <div class="ic-btn" title="Chi tiết">⊙</div>
+                                            )}
+                                            <div className="ic-btn" title="Chỉnh sửa">✎</div>
+                                            {b.status !== 'cancelled' && b.status !== 'completed' && (
+                                                <div className="ic-btn del" onClick={() => handleCancel(b.id)} title="Hủy">✕</div>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
