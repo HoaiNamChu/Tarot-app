@@ -7,7 +7,7 @@ const TITLES = {
     '/payments': 'Thanh toán', '/content': 'Nội dung', '/settings': 'Cài đặt',
 };
 
-export default function Topbar({ onHamburger }) {
+export default function Topbar({ onHamburger, onAddBooking }) {
     const { pathname } = useLocation();
     const [clock, setClock] = useState('');
 
@@ -38,7 +38,7 @@ export default function Topbar({ onHamburger }) {
                     <input type="text" placeholder="Tìm kiếm..." />
                 </div>
                 <div className="tb-ic-btn">🔔<div className="notif-dot"></div></div>
-                <button className="btn-primary" >＋ Thêm lịch</button>
+                <button className="btn-primary" onClick={onAddBooking}>＋ Thêm lịch</button>
             </div>
         </div>
     );

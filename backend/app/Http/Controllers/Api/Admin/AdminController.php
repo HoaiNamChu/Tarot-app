@@ -11,8 +11,6 @@ use Illuminate\Http\Request;
 use App\Mail\BookingConfirmed;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BookingCancelled;
-use App\Services\Booking\CreateBookingService;
-use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
@@ -21,7 +19,7 @@ class AdminController extends Controller
         $now = now();
         $today = today();
 
-        // DĂ¹ng paid_at thay vĂ¬ created_at Ä‘á»ƒ tĂ­nh revenue Ä‘Ăºng
+        // Dùng paid_at thay vì created_at để tính revenue đúng
         $revenueMonth = Booking::join('services', 'bookings.service_id', '=', 'services.id')
             ->whereMonth('bookings.paid_at', $now->month)
             ->whereYear('bookings.paid_at', $now->year)
@@ -130,75 +128,18 @@ class AdminController extends Controller
         ]));
     }
 
-    public function createBooking(Request $request, CreateBookingService $bookingService)
-    {
-        $request->validate([
-            'customer_name'  => 'required|string|max:255',
-            'customer_email' => 'required|email|max:255',
-            'reader_id'      => 'required|exists:readers,id',
-            'service_id'     => 'required|exists:services,id',
-            'booked_at'      => 'nullable|date|after:now',
-            'date'           => 'required_without:booked_at|date|after_or_equal:today',
-            'time'           => 'required_without:booked_at|date_format:H:i',
-            'note'           => 'nullable|string|max:1000',
-        ]);
-
-        $user = User::firstOrCreate(
-            ['email' => $request->customer_email],
-            [
-                'name' => $request->customer_name,
-                'password' => bcrypt(Str::random(24)),
-                'role' => 'user',
-            ]
-        );
-
-        if ($user->name !== $request->customer_name) {
-            $user->update(['name' => $request->customer_name]);
-        }
-
-        $bookedAt = $request->booked_at ?: "{$request->date} {$request->time}:00";
-
-        $booking = $bookingService->execute($user, [
-            'reader_id' => $request->reader_id,
-            'service_id' => $request->service_id,
-            'booked_at' => $bookedAt,
-            'note' => $request->note,
-        ]);
-
-        return response()->json([
-            'id'             => $booking->id,
-            'code'           => 'BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT),
-            'user'           => $booking->user->name,
-            'user_email'     => $booking->user->email,
-            'svc'            => $booking->service->name,
-            'reader'         => $booking->reader->name,
-            'reader_em'      => $booking->reader->avatar,
-            'booked_at'      => $booking->booked_at->format('d/m/Y H:i'),
-            'booked_at_iso'  => $booking->booked_at->toIso8601String(),
-            'date'           => $booking->booked_at->toDateString(),
-            'time'           => $booking->booked_at->format('H:i'),
-            'price'          => number_format($booking->service->price, 0, ',', '.') . 'd',
-            'amount'         => $booking->service->price,
-            'status'         => $booking->status,
-            'payment_status' => $booking->payment_status,
-            'payment_method' => $booking->payment_method,
-            'zoom_link'      => $booking->zoom_link,
-            'note'           => $booking->note,
-        ], 201);
-    }
-
     public function confirmBooking($id)
     {
         $booking = Booking::with(['user', 'reader', 'service'])->findOrFail($id);
 
         if ($booking->status !== 'pending') {
-            return response()->json(['message' => 'KhĂ´ng thá»ƒ xĂ¡c nháº­n lá»‹ch nĂ y.'], 422);
+            return response()->json(['message' => 'Không thể xác nhận lịch này.'], 422);
         }
 
         $booking->update(['status' => 'confirmed']);
         Mail::to($booking->user->email)->queue(new BookingConfirmed($booking));
 
-        return response()->json(['message' => 'ÄĂ£ xĂ¡c nháº­n lá»‹ch.']);
+        return response()->json(['message' => 'Đã xác nhận lịch.']);
     }
 
     public function cancelBooking($id)
@@ -208,12 +149,12 @@ class AdminController extends Controller
 
         $booking->update([
             'status'       => 'cancelled',
-            'cancelled_at' => now(),  // FIX: trÆ°á»›c Ä‘Ă¢y thiáº¿u
+            'cancelled_at' => now(),  // FIX: trước đây thiếu
         ]);
 
         Mail::to($booking->user->email)->queue(new BookingCancelled($booking));
 
-        return response()->json(['message' => 'ÄĂ£ huá»· lá»‹ch.']);
+        return response()->json(['message' => 'Đã huỷ lịch.']);
     }
 
     public function completeBooking($id)
@@ -221,19 +162,15 @@ class AdminController extends Controller
         $booking = Booking::findOrFail($id);
 
         if ($booking->status !== 'confirmed') {
-            return response()->json(['message' => 'Chá»‰ cĂ³ thá»ƒ hoĂ n thĂ nh lá»‹ch Ä‘Ă£ xĂ¡c nháº­n.'], 422);
-        }
-
-        if ($booking->payment_status !== 'paid') {
-            return response()->json(['message' => 'Chi co the hoan thanh lich da thanh toan.'], 422);
+            return response()->json(['message' => 'Chỉ có thể hoàn thành lịch đã xác nhận.'], 422);
         }
 
         $booking->update([
             'status'       => 'completed',
-            'completed_at' => now(),  // FIX: trÆ°á»›c Ä‘Ă¢y thiáº¿u
+            'completed_at' => now(),  // FIX: trước đây thiếu
         ]);
 
-        return response()->json(['message' => 'ÄĂ£ hoĂ n thĂ nh.']);
+        return response()->json(['message' => 'Đã hoàn thành.']);
     }
 
     public function setZoom(Request $request, $id)
@@ -243,7 +180,7 @@ class AdminController extends Controller
         $booking->update(['zoom_link' => $request->zoom_link]);
         Mail::to($booking->user->email)->queue(new BookingConfirmed($booking));
 
-        return response()->json(['message' => 'ÄĂ£ cáº­p nháº­t link Zoom.']);
+        return response()->json(['message' => 'Đã cập nhật link Zoom.']);
     }
 
     public function readers()
@@ -299,7 +236,7 @@ class AdminController extends Controller
             'name'    => $request->name,
             'title'   => $request->title,
             'bio'     => $request->bio,
-            'avatar'  => $request->avatar ?? 'đŸ”®',
+            'avatar'  => $request->avatar ?? '🔮',
             'email'   => $request->email,
             'phone'   => $request->phone,
         ]);
@@ -317,7 +254,7 @@ class AdminController extends Controller
     public function deleteReader($id)
     {
         Reader::findOrFail($id)->delete();
-        return response()->json(['message' => 'ÄĂ£ xoĂ¡ Reader.']);
+        return response()->json(['message' => 'Đã xoá Reader.']);
     }
 
     public function users()
@@ -371,10 +308,10 @@ class AdminController extends Controller
                     'reader'         => $b->reader->name,
                     'reader_em'      => $b->reader->avatar,
                     'amount'         => $b->service->price,
-                    'price'          => number_format($b->service->price, 0, ',', '.') . 'Ä‘',
+                    'price'          => number_format($b->service->price, 0, ',', '.') . 'đ',
                     'method'         => $b->payment_method,
                     'payment_status' => $b->payment_status,
-                    // FIX: dĂ¹ng paid_at, fallback updated_at cho data cÅ©
+                    // FIX: dùng paid_at, fallback updated_at cho data cũ
                     'paid_at'        => $b->paid_at
                         ? $b->paid_at->format('d/m/Y H:i')
                         : $b->updated_at->format('d/m/Y H:i'),
@@ -394,30 +331,17 @@ class AdminController extends Controller
             'payment_method' => $request->payment_method,
         ];
 
-        $booking = Booking::findOrFail($id);
-
-        if ($request->payment_status === 'paid' && $booking->status === 'cancelled') {
-            return response()->json(['message' => 'Khong the danh dau da thanh toan cho lich da huy.'], 422);
-        }
-
-        // FIX: set paid_at khi admin Ä‘Ă¡nh dáº¥u Ä‘Ă£ thanh toĂ¡n thá»§ cĂ´ng
+        // FIX: set paid_at khi admin đánh dấu đã thanh toán thủ công
         if ($request->payment_status === 'paid') {
             $update['paid_at'] = now();
-            if ($booking->status === 'pending') {
-                $update['status'] = 'confirmed';
-            }
         }
 
-        if ($request->payment_status === 'unpaid') {
-            $update['paid_at'] = null;
-        }
-
-        $booking->update($update);
+        Booking::findOrFail($id)->update($update);
 
         $msg = match ($request->payment_status) {
-            'paid'     => 'ÄĂ£ Ä‘Ă¡nh dáº¥u thanh toĂ¡n.',
-            'unpaid'   => 'ÄĂ£ Ä‘Ă¡nh dáº¥u chÆ°a thanh toĂ¡n.',
-            'refunded' => 'ÄĂ£ Ä‘Ă¡nh dáº¥u hoĂ n tiá»n.',
+            'paid'     => 'Đã đánh dấu thanh toán.',
+            'unpaid'   => 'Đã đánh dấu chưa thanh toán.',
+            'refunded' => 'Đã đánh dấu hoàn tiền.',
         };
 
         return response()->json(['message' => $msg]);
