@@ -15,8 +15,21 @@ async function request(path, options = {}) {
         },
     });
     const text = await res.text();
-    const data = text ? JSON.parse(text) : {};
-    if (!res.ok) throw new Error(data.message || 'Lỗi server');
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch {
+        data = {};
+    }
+    if (!res.ok) {
+        const message = res.status === 429
+            ? 'Ban thao tac qua nhanh. Vui long doi mot chut roi thu lai.'
+            : data.message || 'Loi server';
+        const err = new Error(message);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+    }
     return data;
 }
 
@@ -34,6 +47,7 @@ export const api = {
             confirm: (id) => request(`/admin/bookings/${id}/confirm`, { method: 'PATCH' }),
             cancel: (id) => request(`/admin/bookings/${id}/cancel`, { method: 'PATCH' }),
             complete: (id) => request(`/admin/bookings/${id}/complete`, { method: 'PATCH' }),
+            updateStatus: (id, status) => request(`/admin/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
             setZoom: (id, link) => request(`/admin/bookings/${id}/zoom`, { method: 'PATCH', body: JSON.stringify({ zoom_link: link }) }),
             updatePayment: (id, data) => request(`/admin/bookings/${id}/payment`, { method: 'PATCH', body: JSON.stringify(data) }),
         },
@@ -49,14 +63,31 @@ export const api = {
             update: (id, d) => request(`/admin/services/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
             delete: (id) => request(`/admin/services/${id}`, { method: 'DELETE' }),
         },
-        users: { getAll: () => request('/admin/users') },
-        reviews: { getAll: () => request('/admin/reviews') },
+        users: {
+            getAll: () => request('/admin/users'),
+            create: (data) => request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
+            update: (id, data) => request(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+            delete: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
+        },
+        reviews: {
+            getAll: () => request('/admin/reviews'),
+            update: (id, data) => request(`/admin/reviews/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+            reply: (id, data) => request(`/admin/reviews/${id}/reply`, { method: 'PATCH', body: JSON.stringify(data) }),
+        },
         payments: { getAll: () => request('/admin/payments') },
+        settings: {
+            get: () => request('/admin/settings'),
+            update: (data) => request('/admin/settings', { method: 'PUT', body: JSON.stringify(data) }),
+        },
+        actionLogs: { getAll: () => request('/admin/action-logs') },
     },
     reader: {
         me: () => request('/reader/me'),
         stats: () => request('/reader/stats'),
         bookings: (params = '') => request(`/reader/bookings?${params}`),
         updateProfile: (data) => request('/reader/profile', { method: 'PUT', body: JSON.stringify(data) }),
+    },
+    profile: {
+        changePassword: (data) => request('/profile/password', { method: 'PUT', body: JSON.stringify(data) }),
     },
 };

@@ -19,11 +19,19 @@ class Payment extends Model
         'amount',
         'status',
         'transaction_code',
+        'paid_at',
+        'proof_code',
+        'proof_note',
+        'submitted_at',
+        'verified_by',
+        'verified_at',
         'payload',
     ];
 
     protected $casts = [
-        'payload' => 'array'
+        'payload' => 'array',
+        'submitted_at' => 'datetime',
+        'verified_at' => 'datetime',
     ];
 
     public function booking()

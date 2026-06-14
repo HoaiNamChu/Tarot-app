@@ -159,7 +159,7 @@
             <p>Nếu bạn có thắc mắc, hãy reply email này hoặc liên hệ fanpage của chúng tôi.</p>
 
             <div style="text-align:center">
-                <a href="{{ env('FRONTEND_URL', 'http://localhost:5173') }}/dashboard" class="btn">Xem lịch của
+                <a href="{{ rtrim(config('tarot.frontend_url'), '/') }}/dashboard" class="btn">Xem lịch của
                     tôi</a>
             </div>
         </div>

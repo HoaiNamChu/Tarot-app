@@ -145,7 +145,7 @@
             <p>Bạn có thể đặt lịch mới bất cứ lúc nào.</p>
 
             <div style="text-align:center;margin-top:1.5rem">
-                <a href="{{ env('FRONTEND_URL', 'http://localhost:5173') }}/#booking" class="btn">Đặt lịch mới</a>
+                <a href="{{ rtrim(config('tarot.frontend_url'), '/') }}/#booking" class="btn">Đặt lịch mới</a>
             </div>
         </div>
 

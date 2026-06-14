@@ -9,13 +9,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Thêm 'expired' vào enum payments.status
-        DB::statement("
-            ALTER TABLE `payments`
-            MODIFY COLUMN `status`
-            ENUM('pending','success','failed','refunded','expired')
-            NOT NULL
-        ");
+        // 1. Add 'expired' to payments.status on MySQL. SQLite test DB does not support MODIFY COLUMN.
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE `payments`
+                MODIFY COLUMN `status`
+                ENUM('pending','success','failed','refunded','expired')
+                NOT NULL
+            ");
+        }
 
         // 2. Backfill cancelled_at
         DB::statement("
@@ -41,11 +43,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement("
-            ALTER TABLE `payments`
-            MODIFY COLUMN `status`
-            ENUM('pending','success','failed','refunded')
-            NOT NULL
-        ");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE `payments`
+                MODIFY COLUMN `status`
+                ENUM('pending','success','failed','refunded')
+                NOT NULL
+            ");
+        }
     }
 };

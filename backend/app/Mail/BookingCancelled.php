@@ -12,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use App\Models\Booking;
 
 
-class BookingCancelled extends Mailable
+class BookingCancelled extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

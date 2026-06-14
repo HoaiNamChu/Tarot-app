@@ -20,19 +20,26 @@ class PaymentService
 
         return DB::transaction(function () use ($booking, $gateway) {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
+
+            if ($booking->payment_status === 'paid') {
+                throw new \Exception('Booking da duoc thanh toan.');
+            }
+
+            if ($booking->expires_at && $booking->expires_at->isPast()) {
+                throw new \Exception('Booking da het han thanh toan.');
+            }
+
             $booking->update(['payment_method' => $gateway]);
 
-            // Tái dùng payment pending thay vì throw exception
-            // (user back từ VNPay rồi nhấn thanh toán lại)
-            if ($gateway !== 'vnpay') {
-                $existing = Payment::where('booking_id', $booking->id)
-                    ->where('gateway', $gateway)
-                    ->where('status', Payment::PENDING)
-                    ->first();
+            // Reuse a pending payment so retrying checkout does not create duplicates.
+            $existing = Payment::where('booking_id', $booking->id)
+                ->where('gateway', $gateway)
+                ->where('status', Payment::PENDING)
+                ->latest('id')
+                ->first();
 
-                if ($existing) {
-                    return $existing;
-                }
+            if ($existing) {
+                return $existing;
             }
 
             return Payment::create([

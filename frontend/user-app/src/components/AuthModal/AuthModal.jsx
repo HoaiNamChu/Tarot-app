@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import styles from './AuthModal.module.css';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { api } from '../../services/api.js';
 
 function AuthModal({ isOpen, activeTab, onClose }) {
   const { handleLogin, handleRegister } = useAuth();
@@ -79,6 +80,23 @@ function AuthModal({ isOpen, activeTab, onClose }) {
     }
   }
 
+  async function forgotPassword() {
+    if (!loginForm.email) {
+      setErr('Vui lòng nhập email để nhận link đặt lại mật khẩu.');
+      return;
+    }
+    setErr('');
+    setLoading(true);
+    try {
+      const res = await api.forgotPassword(loginForm.email);
+      showToast(res.message || 'Nếu email tồn tại, hệ thống đã gửi link đặt lại mật khẩu.');
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className={`${styles['modal-overlay']} ${styles.open}`} onClick={e => e.target === e.currentTarget && handleClose()}>
       <div className={styles['modal-box']}>
@@ -116,6 +134,9 @@ function AuthModal({ isOpen, activeTab, onClose }) {
               </div>
               <button className={styles.msubmit} onClick={submitLogin} disabled={loading}>
                 {loading ? 'Đang xử lý...' : 'Đăng Nhập'}
+              </button>
+              <button type="button" onClick={forgotPassword} disabled={loading} style={{ width: '100%', marginTop: '.65rem', background: 'transparent', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: '.78rem' }}>
+                Quen mat khau?
               </button>
               <div className={styles.mfooter}>
                 Chưa có tài khoản?{' '}

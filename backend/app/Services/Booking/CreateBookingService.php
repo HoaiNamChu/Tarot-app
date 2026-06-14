@@ -16,12 +16,14 @@ class CreateBookingService
 {
     public function execute(
         User $user,
-        array $data
+        array $data,
+        bool $notify = true
     ): Booking {
 
         return DB::transaction(function () use (
             $user,
-            $data
+            $data,
+            $notify
         ) {
 
             $reader = Reader::lockForUpdate()
@@ -128,27 +130,26 @@ class CreateBookingService
                 'user'
             ]);
 
-            DB::afterCommit(function () use ($booking) {
+            if ($notify) {
+                DB::afterCommit(function () use ($booking) {
 
-                Mail::to(
-                    $booking->user->email
-                )->queue(
-                    new BookingCreated(
-                        $booking
-                    )
-                );
+                    Mail::to(
+                        $booking->user->email
+                    )->queue(
+                        new BookingCreated(
+                            $booking
+                        )
+                    );
 
-                Mail::to(
-                    env(
-                        'ADMIN_EMAIL',
-                        'admin@lunaarcana.com'
-                    )
-                )->queue(
-                    new BookingCreated(
-                        $booking
-                    )
-                );
-            });
+                    Mail::to(
+                        config('tarot.admin_email')
+                    )->queue(
+                        new BookingCreated(
+                            $booking
+                        )
+                    );
+                });
+            }
 
 
             return $booking;

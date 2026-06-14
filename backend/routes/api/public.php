@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\PublicApi\ReadingController;
 use App\Http\Controllers\Api\PublicApi\ReaderController;
 use App\Http\Controllers\Api\PublicApi\ServiceController;
 use App\Http\Controllers\Api\PublicApi\AvailabilityController;
+use App\Http\Controllers\Api\PublicApi\SettingController;
 
 Route::prefix('readings')->middleware('throttle:40,1')->group(function () {
     Route::get('/limit', [ReadingController::class, 'getLimit']);
@@ -15,6 +16,7 @@ Route::prefix('readings')->middleware('throttle:40,1')->group(function () {
 Route::middleware('throttle:150,1')->group(function () {
     Route::get('/readers', [ReaderController::class, 'index']);
     Route::get('/services', [ServiceController::class, 'index']);
+    Route::get('/settings/payment', [SettingController::class, 'payment']);
 });
 
 Route::prefix('readers')->middleware('throttle:80,1')->group(function () {

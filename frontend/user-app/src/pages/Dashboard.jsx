@@ -26,6 +26,7 @@ function Dashboard() {
     const [passForm, setPassForm] = useState({ current_password: '', new_password: '', new_password_confirmation: '' });
     const [profileLoading, setProfileLoading] = useState(false);
     const [passLoading, setPassLoading] = useState(false);
+    const [nowMs] = useState(() => Date.now());
 
     useEffect(() => {
         if (!loading && !isLoggedIn) navigate('/');
@@ -43,7 +44,7 @@ function Dashboard() {
     const canPayBooking = (booking) => {
         if (booking.paid || booking.status !== 'pending') return false;
         if (booking.payment_status === 'pending_verification') return false;
-        if (booking.expires_at && new Date(booking.expires_at).getTime() <= Date.now()) return false;
+        if (booking.expires_at && new Date(booking.expires_at).getTime() <= nowMs) return false;
 
         return true;
     };
@@ -327,6 +328,12 @@ function Dashboard() {
                                     </div>
                                 </div>
                                 <div className={styles['mrc-text']}>"{r.text}"</div>
+                                {r.adminReply && (
+                                    <div style={{ marginTop: '.75rem', padding: '.8rem .9rem', border: '1px solid rgba(200,169,110,.18)', background: 'rgba(200,169,110,.06)', borderRadius: 4 }}>
+                                        <div style={{ fontSize: '.62rem', letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '.35rem' }}>Phan hoi tu admin</div>
+                                        <div style={{ fontSize: '.82rem', lineHeight: 1.55, color: 'var(--muted-2)' }}>{r.adminReply}</div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

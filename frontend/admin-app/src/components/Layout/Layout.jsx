@@ -10,7 +10,20 @@ export default function Layout() {
   const { admin, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [bookingCustomer, setBookingCustomer] = useState(null);
+  const [bookingModalKey, setBookingModalKey] = useState(0);
   const location = useLocation();
+
+  function openAddBooking(customer = null) {
+    setBookingCustomer(customer);
+    setBookingModalKey(key => key + 1);
+    setModalOpen(true);
+  }
+
+  function closeAddBooking() {
+    setModalOpen(false);
+    setBookingCustomer(null);
+  }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -32,12 +45,12 @@ export default function Layout() {
       <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar admin={admin} onLogout={() => { logout(); navigate('/login'); }} onClose={() => setSidebarOpen(false)} isOpen={sidebarOpen} />
       <div className="main">
-        <Topbar onHamburger={() => setSidebarOpen(o => !o)} onAddBooking={() => setModalOpen(true)} />
+        <Topbar onHamburger={() => setSidebarOpen(o => !o)} onAddBooking={() => openAddBooking()} />
         <div className="content">
-          <Outlet context={{ onAddBooking: () => setModalOpen(true) }} />
+          <Outlet context={{ onAddBooking: openAddBooking }} />
         </div>
       </div>
-      <AddBookingModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      <AddBookingModal key={bookingModalKey} isOpen={modalOpen} onClose={closeAddBooking} initialCustomer={bookingCustomer} />
     </div>
   );
 }

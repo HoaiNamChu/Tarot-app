@@ -8,10 +8,15 @@ use Illuminate\Http\Request;
 
 class ReaderDashboardController extends Controller
 {
+    private function currentReader(Request $request)
+    {
+        return $request->user()->reader;
+    }
+
     // Lấy thông tin reader hiện tại
     public function me(Request $request)
     {
-        $reader = $request->user()->reader;
+        $reader = $this->currentReader($request);
         if (!$reader) {
             return response()->json(['message' => 'Không tìm thấy thông tin Reader.'], 404);
         }
@@ -30,8 +35,10 @@ class ReaderDashboardController extends Controller
     // Lịch của reader
     public function bookings(Request $request)
     {
-        $reader = $request->user()->reader;
-        if (!$reader) return response()->json([], 200);
+        $reader = $this->currentReader($request);
+        if (!$reader) {
+            return response()->json(['message' => 'Không tìm thấy thông tin Reader.'], 404);
+        }
 
         $query = Booking::with(['user', 'service'])
             ->where('reader_id', $reader->id)
@@ -66,8 +73,10 @@ class ReaderDashboardController extends Controller
     // Stats của reader
     public function stats(Request $request)
     {
-        $reader = $request->user()->reader;
-        if (!$reader) return response()->json([]);
+        $reader = $this->currentReader($request);
+        if (!$reader) {
+            return response()->json(['message' => 'Không tìm thấy thông tin Reader.'], 404);
+        }
 
         $now = now();
         return response()->json([
@@ -87,12 +96,17 @@ class ReaderDashboardController extends Controller
     // Cập nhật profile
     public function updateProfile(Request $request)
     {
-        $reader = $request->user()->reader;
-        $request->validate([
+        $reader = $this->currentReader($request);
+        if (!$reader) {
+            return response()->json(['message' => 'Không tìm thấy thông tin Reader.'], 404);
+        }
+
+        $data = $request->validate([
             'bio'   => 'nullable|string',
             'phone' => 'nullable|string',
         ]);
-        $reader->update($request->only('bio', 'phone'));
+
+        $reader->update($data);
         return response()->json(['message' => 'Đã cập nhật thông tin.']);
     }
 }

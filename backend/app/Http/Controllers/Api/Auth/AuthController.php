@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Mail\PasswordResetRequested;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -75,5 +79,65 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json($request->user());
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if ($user) {
+            $token = Str::random(64);
+
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $user->email],
+                [
+                    'token' => Hash::make($token),
+                    'created_at' => now(),
+                ]
+            );
+
+            $resetUrl = rtrim(config('tarot.frontend_url', config('app.url')), '/')
+                . '/reset-password?email=' . urlencode($user->email)
+                . '&token=' . urlencode($token);
+
+            Mail::to($user->email)->queue(new PasswordResetRequested($resetUrl));
+        }
+
+        return response()->json([
+            'message' => 'Nếu email tồn tại, hệ thống đã gửi link đặt lại mật khẩu.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->first();
+
+        if (
+            !$record ||
+            !Hash::check($request->token, $record->token) ||
+            now()->diffInMinutes(\Carbon\Carbon::parse($record->created_at)) > 60
+        ) {
+            return response()->json(['message' => 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.'], 422);
+        }
+
+        User::where('email', $request->email)->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Đã đặt lại mật khẩu thành công.']);
     }
 }

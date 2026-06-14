@@ -6,7 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class Review extends Model
 {
-    protected $fillable = ['user_id', 'booking_id', 'reader_id', 'stars', 'content'];
+    protected $fillable = [
+        'user_id',
+        'booking_id',
+        'reader_id',
+        'stars',
+        'content',
+        'status',
+        'admin_reply',
+        'reply_visible',
+        'replied_at',
+    ];
+
+    protected $casts = [
+        'reply_visible' => 'boolean',
+        'replied_at' => 'datetime',
+    ];
 
     public function user()
     {

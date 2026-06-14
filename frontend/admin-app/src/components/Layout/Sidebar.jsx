@@ -9,15 +9,15 @@ const NAV = [
     },
     {
         section: 'Quản lý', items: [
-            { to: '/bookings', icon: '◷', label: 'Đặt lịch', pill: { text: '12', cls: 'r' } },
+            { to: '/bookings', icon: '◷', label: 'Đặt lịch' },
             { to: '/readers', icon: '✦', label: 'Tarot Reader' },
             { to: '/users', icon: '○', label: 'Khách hàng' },
-            { to: '/reviews', icon: '◇', label: 'Đánh giá', pill: { text: '8', cls: 'a' } },
+            { to: '/reviews', icon: '◇', label: 'Đánh giá' },
         ]
     },
     {
         section: 'Tài chính', items: [
-            { to: '/payments', icon: '⬡', label: 'Thanh toán', pill: { text: '3', cls: 'v' } },
+            { to: '/payments', icon: '⬡', label: 'Thanh toán' },
         ]
     },
     {
@@ -64,7 +64,7 @@ export default function Sidebar({ admin, onLogout, onClose, isOpen }) {
                     <div className="sb-av">{initials}</div>
                     <div>
                         <div className="sb-uname">{admin?.name}</div>
-                        <div className="sb-urole">Super Admin</div>
+                        <div className="sb-urole">{admin?.role === 'admin' ? 'Admin' : admin?.role || 'User'}</div>
                     </div>
                 </div>
                 <button className="btn-ghost" style={{ width: '100%', marginTop: '.75rem', fontSize: '.68rem' }}

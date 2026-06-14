@@ -219,6 +219,27 @@
     display: block;
 }
 
+.pay-vietqr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .6rem;
+    padding: .85rem;
+    margin-bottom: .75rem;
+    background: #fff;
+    color: #1b1724;
+    border-radius: 4px;
+    text-align: center;
+    font-size: .72rem;
+    line-height: 1.4;
+}
+
+.pay-vietqr img {
+    width: min(240px, 100%);
+    height: auto;
+    display: block;
+}
+
 .pay-bank-row {
     display: flex;
     justify-content: space-between;
@@ -240,6 +261,30 @@
     color: var(--cream);
     font-family: 'DM Sans', sans-serif;
     font-weight: 500;
+}
+
+.pay-input,
+.pay-textarea {
+    width: 100%;
+    margin-top: .75rem;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid var(--border-2);
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .8rem;
+    padding: .75rem .85rem;
+    border-radius: 2px;
+    outline: none;
+}
+
+.pay-textarea {
+    min-height: 74px;
+    resize: vertical;
+}
+
+.pay-input:focus,
+.pay-textarea:focus {
+    border-color: var(--gold);
 }
 
 .pay-confirm-btn {

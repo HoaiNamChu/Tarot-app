@@ -18,8 +18,8 @@ class ReadingController extends Controller
         $user  = $request->user('sanctum'); // null nếu chưa login
 
         $limit = $user
-            ? (int) env('DAILY_LIMIT_USER', 5)
-            : (int) env('DAILY_LIMIT_GUEST', 3);
+            ? (int) config('tarot.daily_limits.user', 5)
+            : (int) config('tarot.daily_limits.guest', 3);
 
         if ($user) {
             $record = DailyReading::firstOrCreate(
@@ -47,8 +47,8 @@ class ReadingController extends Controller
         $today = now()->toDateString();
         $user  = $request->user('sanctum'); // null nếu chưa login
         $limit = $user
-            ? (int) env('DAILY_LIMIT_USER', 5)
-            : (int) env('DAILY_LIMIT_GUEST', 3);
+            ? (int) config('tarot.daily_limits.user', 5)
+            : (int) config('tarot.daily_limits.guest', 3);
 
         if ($user) {
             $record = DailyReading::firstOrCreate(
@@ -132,13 +132,32 @@ class ReadingController extends Controller
     }
 
     // ── Anthropic Claude ──
+    public function history(Request $request)
+    {
+        return response()->json(
+            ReadingInterpretation::where('user_id', $request->user()->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get()
+                ->map(fn($reading) => [
+                    'id'             => $reading->id,
+                    'question'       => $reading->question,
+                    'cards'          => $reading->cards,
+                    'interpretation' => $reading->interpretation,
+                    'created_at'     => $reading->created_at->toIso8601String(),
+                    'date'           => $reading->created_at->format('d/m/Y H:i'),
+                ])
+        );
+    }
+
     private function tryAnthropic(string $prompt): ?string
     {
-        if (!env('ANTHROPIC_API_KEY')) return null;
+        $apiKey = config('tarot.ai.anthropic_key');
+        if (!$apiKey) return null;
 
         try {
             $response = Http::timeout(20)->withHeaders([
-                'x-api-key'         => env('ANTHROPIC_API_KEY'),
+                'x-api-key'         => $apiKey,
                 'anthropic-version' => '2023-06-01',
                 'content-type'      => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
@@ -161,11 +180,12 @@ class ReadingController extends Controller
     // ── Google Gemini ──
     private function tryGemini(string $prompt): ?string
     {
-        if (!env('GEMINI_API_KEY')) return null;
+        $apiKey = config('tarot.ai.gemini_key');
+        if (!$apiKey) return null;
 
         try {
             $response = Http::timeout(20)
-                ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . env('GEMINI_API_KEY'), [
+                ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $apiKey, [
                     'contents' => [
                         ['parts' => [['text' => $prompt]]]
                     ],
@@ -185,11 +205,12 @@ class ReadingController extends Controller
     // ── Groq ──
     private function tryGroq(string $prompt): ?string
     {
-        if (!env('GROQ_API_KEY')) return null;
+        $apiKey = config('tarot.ai.groq_key');
+        if (!$apiKey) return null;
 
         try {
             $response = Http::timeout(20)->withHeaders([
-                'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type'  => 'application/json',
             ])->post('https://api.groq.com/openai/v1/chat/completions', [
                 'model'      => 'llama-3.3-70b-versatile',

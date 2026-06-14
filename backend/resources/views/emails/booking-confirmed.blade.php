@@ -180,7 +180,7 @@
             <p>Hãy chuẩn bị không gian yên tĩnh và tập trung vào câu hỏi bạn muốn giải đáp nhé.</p>
 
             <div style="text-align:center">
-                <a href="{{ env('FRONTEND_URL', 'http://localhost:5173') }}/dashboard" class="btn">Xem lịch của
+                <a href="{{ rtrim(config('tarot.frontend_url'), '/') }}/dashboard" class="btn">Xem lịch của
                     tôi</a>
             </div>
         </div>

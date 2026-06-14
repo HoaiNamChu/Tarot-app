@@ -2,8 +2,17 @@ import { useState, useEffect } from 'react';
 import { api } from '../../services/api.js';
 import { useToast } from '../../contexts/ToastContext.jsx';
 
-export default function AddBookingModal({ isOpen, onClose }) {
-    const [form, setForm] = useState({ name: '', phone: '', service_id: '', reader_id: '', date: '', time: '09:00' });
+const emptyBookingForm = (customer = null) => ({
+    name: customer?.name || '',
+    phone: customer?.phone || '',
+    service_id: '',
+    reader_id: '',
+    date: '',
+    time: '09:00',
+});
+
+export default function AddBookingModal({ isOpen, onClose, initialCustomer = null }) {
+    const [form, setForm] = useState(() => emptyBookingForm(initialCustomer));
     const [readers, setReaders] = useState([]);
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -42,7 +51,7 @@ export default function AddBookingModal({ isOpen, onClose }) {
                 time: form.time,
             });
             showToast('Đã tạo lịch thành công!');
-            setForm({ name: '', phone: '', service_id: '', reader_id: '', date: '', time: '09:00' });
+            setForm(emptyBookingForm());
             onClose();
         } catch (err) {
             showToast(err.message || 'Lỗi tạo lịch', 'error');
@@ -55,7 +64,7 @@ export default function AddBookingModal({ isOpen, onClose }) {
 
     return (
         <div className="modal-bg open" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="modal-box">
+            <div className="modal-box modal-lg">
                 <div className="modal-head">
                     <div className="modal-title">Thêm lịch đặt mới</div>
                     <button className="modal-close-btn" onClick={onClose}>✕</button>

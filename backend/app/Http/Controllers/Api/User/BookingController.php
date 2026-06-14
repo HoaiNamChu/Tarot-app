@@ -25,14 +25,14 @@ class BookingController extends Controller
 
     public function store(Request $request, CreateBookingService $service)
     {
-        $request->validate([
+        $data = $request->validate([
             'reader_id'  => 'required|exists:readers,id',
             'service_id' => 'required|exists:services,id',
             'booked_at'  => 'required|date|after:now',
             'note'       => 'nullable|string|max:1000',
         ]);
 
-        $booking = $service->execute($request->user(), $request->all());
+        $booking = $service->execute($request->user(), $data);
 
         return response()->json($this->formatBooking($booking), 201);
     }
@@ -61,8 +61,10 @@ class BookingController extends Controller
 
     public function pay(Request $request, $id, \App\Services\Payment\PaymentService $service)
     {
-        $request->validate([
-            'payment_method' => 'required|in:vnpay,bank'
+        $data = $request->validate([
+            'payment_method' => 'required|in:vnpay,bank',
+            'proof_code' => 'nullable|string|max:100',
+            'proof_note' => 'nullable|string|max:1000',
         ]);
 
         try {
@@ -91,9 +93,9 @@ class BookingController extends Controller
                 return response()->json(['message' => 'Booking đã hết hạn thanh toán.'], 410);
             }
 
-            $payment = $service->create($booking, $request->payment_method);
+            $payment = $service->create($booking, $data['payment_method']);
 
-            if ($request->payment_method === 'vnpay') {
+            if ($data['payment_method'] === 'vnpay') {
                 $vnpay = app(\App\Services\Payment\VNPayService::class);
                 $url = $vnpay->createUrl($booking, $payment);
                 return response()->json(['payment_url' => $url]);
@@ -104,14 +106,23 @@ class BookingController extends Controller
                 'payment_status' => 'pending_verification',
             ]);
 
+            $payment->update([
+                'proof_code' => $data['proof_code'] ?? null,
+                'proof_note' => $data['proof_note'] ?? null,
+                'submitted_at' => now(),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Da ghi nhan chuyen khoan. Admin se xac nhan thanh toan.',
                 'payment_status' => 'pending_verification',
                 'payment_method' => 'bank',
             ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 409);
+        } catch (\Throwable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Khong the xu ly thanh toan luc nay. Vui long thu lai sau.',
+            ], 409);
         }
     }
 
@@ -128,6 +139,8 @@ class BookingController extends Controller
                 'svc'        => $r->booking->service->name ?? '',
                 'stars'      => $r->stars,
                 'text'       => $r->content,
+                'status'     => $r->status ?: 'pending',
+                'adminReply' => $r->reply_visible ? $r->admin_reply : null,
                 'date'       => $r->created_at->format('d/m/Y'),
                 'bookingId'  => $r->booking_id,
             ]);
@@ -161,6 +174,7 @@ class BookingController extends Controller
             'reader_id'  => $booking->reader_id,
             'stars'      => $request->stars,
             'content'    => $request->content,
+            'status'     => 'pending',
         ]);
 
         $booking->update(['reviewed' => true]);
@@ -172,6 +186,8 @@ class BookingController extends Controller
             'svc'        => $booking->service->name,
             'stars'      => $review->stars,
             'text'       => $review->content,
+            'status'     => $review->status,
+            'adminReply' => null,
             'date'       => $review->created_at->format('d/m/Y'),
             'bookingId'  => $review->booking_id,
         ], 201);
@@ -199,7 +215,7 @@ class BookingController extends Controller
             'paid'                  => $b->payment_status === 'paid',
             'reviewed'              => $b->reviewed ?? false,
             'zoom_link'             => $b->zoom_link,
-            'expires_at'            => $b->expires_at?->format('Y-m-d H:i:s'),
+            'expires_at'            => $b->expires_at?->toIso8601String(),
         ];
     }
 }

@@ -8,7 +8,7 @@ async function request(path, options = {}) {
   const res = await fetch(`${BASE}/api${path}`, {
     ...options,
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
       ...options.headers,
@@ -16,8 +16,22 @@ async function request(path, options = {}) {
   });
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw new Error(data.message || 'Lỗi server');
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
+
+  if (!res.ok) {
+    const message = res.status === 429
+      ? 'Ban thao tac qua nhanh. Vui long doi mot chut roi thu lai.'
+      : data.message || 'Loi server';
+    const err = new Error(message);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   return data;
 }
 
@@ -28,8 +42,17 @@ export const api = {
   login: (email, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
-  logout: () =>
-    request('/auth/logout', { method: 'POST' }),
+  forgotPassword: (email) =>
+    request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  resetPassword: (data) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify(data) }),
+
+  logout: (token) =>
+    request('/auth/logout', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
 
   me: () =>
     request('/auth/me'),
@@ -47,15 +70,17 @@ export const api = {
     getBusySlots: (readerId, month) => request(`/readers/${readerId}/busy-slots?month=${month}`),
     checkSlot: (readerId, bookedAt, serviceId) => request(`/readers/${readerId}/check-slot?booked_at=${encodeURIComponent(bookedAt)}&service_id=${serviceId}`),
   },
-
   services: {
     getAll: () => request('/services'),
+  },
+  settings: {
+    payment: () => request('/settings/payment'),
   },
   bookings: {
     getAll: () => request('/bookings'),
     create: (data) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),
     cancel: (id) => request(`/bookings/${id}/cancel`, { method: 'PATCH' }),
-    pay: (id, method) => request(`/bookings/${id}/pay`, { method: 'PATCH', body: JSON.stringify({ payment_method: method }) }),
+    pay: (id, method, proof = {}) => request(`/bookings/${id}/pay`, { method: 'PATCH', body: JSON.stringify({ payment_method: method, ...proof }) }),
     getReviews: () => request('/bookings/reviews'),
     addReview: (id, data) => request(`/bookings/${id}/reviews`, { method: 'POST', body: JSON.stringify(data) }),
   },

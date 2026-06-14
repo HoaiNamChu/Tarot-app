@@ -1,14 +1,30 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from './ToastContext.jsx';
 import AuthModal from '../components/AuthModal/AuthModal.jsx';
 import { api } from '../services/api.js';
 
 const AuthContext = createContext(null);
 
+function readStoredUser() {
+  try {
+    const stored = localStorage.getItem('la_session');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    localStorage.removeItem('la_session');
+    return null;
+  }
+}
+
+function clearStoredSession() {
+  localStorage.removeItem('la_token');
+  localStorage.removeItem('la_session');
+}
+
 export function AuthProvider({ children }) {
-  const [loading, setLoading] = useState(true);
+  const hasToken = Boolean(localStorage.getItem('la_token'));
+  const [loading, setLoading] = useState(() => hasToken && !readStoredUser());
   const showToast = useToast();
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => readStoredUser());
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState('login');
   const [bookings, setBookings] = useState([]);
@@ -17,13 +33,20 @@ export function AuthProvider({ children }) {
   // restore session khi reload
   useEffect(() => {
     const token = localStorage.getItem('la_token');
-    if (!token){
-      setLoading(false);
-      return;
-    } ;
+    if (!token) return;
+
     api.me()
-      .then(user => setCurrentUser(user))
-      .catch(() => localStorage.removeItem('la_token'))
+      .then(user => {
+        if (localStorage.getItem('la_token') !== token) return;
+        setCurrentUser(user);
+        localStorage.setItem('la_session', JSON.stringify(user));
+      })
+      .catch((err) => {
+        if (err.status === 401 || err.status === 403) {
+          clearStoredSession();
+          setCurrentUser(null);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -63,26 +86,32 @@ export function AuthProvider({ children }) {
   async function handleLogin(email, password) {
     const data = await api.login(email, password); // throw nếu lỗi
     localStorage.setItem('la_token', data.token);
+    localStorage.setItem('la_session', JSON.stringify(data.user));
     setCurrentUser(data.user);
   }
 
   async function handleRegister(name, email, password) {
     const data = await api.register(name, email, password);
     localStorage.setItem('la_token', data.token);
+    localStorage.setItem('la_session', JSON.stringify(data.user));
     setCurrentUser(data.user);
   }
 
   async function handleLogout() {
-    try { await api.logout(); } catch { /* ignore */ }
-    localStorage.removeItem('la_token');
+    const token = localStorage.getItem('la_token');
+    clearStoredSession();
     setCurrentUser(null);
+    setBookings([]);
+    setReviews([]);
+    try { await api.logout(token); } catch { /* ignore */ }
   }
 
-  async function payBooking(id, method) {
+  async function payBooking(id, method, proof = {}) {
 
     const res = await api.bookings.pay(
       id,
-      method
+      method,
+      proof
     );
 
     if (
@@ -118,7 +147,7 @@ export function AuthProvider({ children }) {
     ));
     setReviews(prev => [review, ...prev]);
   }
-  async function refreshBookings() {
+  const refreshBookings = useCallback(async function refreshBookings() {
     if (!currentUser) return;
     try {
       const [b, r] = await Promise.all([
@@ -128,7 +157,7 @@ export function AuthProvider({ children }) {
       setBookings(b);
       setReviews(r);
     } catch { /* ignore */ }
-  }
+  }, [currentUser]);
 
   function updateUser(user) {
     setCurrentUser(user);

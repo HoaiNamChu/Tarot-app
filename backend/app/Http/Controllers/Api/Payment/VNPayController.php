@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class VNPayController extends Controller
 {
@@ -21,18 +20,17 @@ class VNPayController extends Controller
         // Không verify thì bất kỳ ai cũng giả được thanh toán thành công
         if (!$this->verifySignature($request)) {
             $query['status'] = 'invalid-signature';
-            return redirect(env('FRONTEND_URL') . '/payment-result?' . http_build_query($query));
+            return redirect(rtrim(config('tarot.frontend_url'), '/') . '/payment-result?' . http_build_query($query));
         }
 
-        $this->processPayment($request);
-
-        if ($request->vnp_ResponseCode === '00') {
-            $query['status'] = 'success';
-            return redirect(env('FRONTEND_URL') . '/payment-result?' . http_build_query($query));
+        try {
+            $this->processPayment($request);
+            $query['status'] = $request->vnp_ResponseCode === '00' ? 'success' : 'failed';
+        } catch (\Throwable) {
+            $query['status'] = 'failed';
         }
 
-        $query['status'] = 'failed';
-        return redirect(env('FRONTEND_URL') . '/payment-result?' . http_build_query($query));
+        return redirect(rtrim(config('tarot.frontend_url'), '/') . '/payment-result?' . http_build_query($query));
     }
 
     public function ipn(Request $request)
@@ -41,7 +39,11 @@ class VNPayController extends Controller
             return response()->json(['RspCode' => '97', 'Message' => 'Invalid signature']);
         }
 
-        return $this->processPayment($request);
+        try {
+            return $this->processPayment($request);
+        } catch (\Throwable) {
+            return response()->json(['RspCode' => '99', 'Message' => 'Payment processing failed']);
+        }
     }
 
     private function verifySignature(Request $request): bool
@@ -57,14 +59,7 @@ class VNPayController extends Controller
             ->implode('&');
         $computed = hash_hmac('sha512', $hashData, $vnp_HashSecret);
 
-        Log::debug('VNPay signature', [
-            'match'     => $computed === $vnp_SecureHash,
-            'computed'  => $computed,
-            'received'  => $vnp_SecureHash,
-            'hash_data' => $hashData,
-        ]);
-        
-        return hash_hmac('sha512', $hashData, $vnp_HashSecret) === $vnp_SecureHash;
+        return hash_equals($computed, $vnp_SecureHash);
     }
 
     private function processPayment(Request $request)
