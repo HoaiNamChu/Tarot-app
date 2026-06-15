@@ -1,0 +1,16 @@
+{
+  "name": "Luna Arcana",
+  "short_name": "Luna Arcana",
+  "description": "Dat lich xem Tarot online va rut bai mien phi.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0b12",
+  "theme_color": "#0d0b12",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
