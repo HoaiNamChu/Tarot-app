@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api.js';
 import { useToast } from '../../contexts/ToastContext.jsx';
-import { ConfirmModal, InfoRow, Modal } from '../../components/Modal/Modal.jsx';
+import { InfoRow, Modal } from '../../components/Modal/Modal.jsx';
 
 const ST = {
     paid: ['b-green', 'Da thanh toan'],
@@ -29,6 +29,12 @@ export default function Payments() {
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
     const [modal, setModal] = useState(null);
+    const [refundForm, setRefundForm] = useState({
+        refund_amount: '',
+        refund_reference: '',
+        refund_reason: '',
+        refund_note: '',
+    });
 
     useEffect(() => {
         api.admin.payments.getAll()
@@ -48,20 +54,50 @@ export default function Payments() {
     function closeModal() {
         setSelected(null);
         setModal(null);
+        setRefundForm({
+            refund_amount: '',
+            refund_reference: '',
+            refund_reason: '',
+            refund_note: '',
+        });
     }
 
-    async function updatePayment(row, payment_status) {
+    function openRefundModal(row) {
+        setSelected(row);
+        setRefundForm({
+            refund_amount: row.refund_amount || row.amount || '',
+            refund_reference: row.refund_reference || '',
+            refund_reason: row.refund_reason || '',
+            refund_note: row.refund_note || '',
+        });
+        setModal('refund');
+    }
+
+    async function updatePayment(row, payment_status, extra = {}) {
         try {
             await api.admin.bookings.updatePayment(row.id, {
                 payment_status,
                 payment_method: row.method || 'bank',
+                ...extra,
             });
-            setPayments(prev => prev.map(p => p.id === row.id ? { ...p, payment_status, method: row.method || 'bank' } : p));
-            showToast(payment_status === 'paid' ? 'Da xac nhan thanh toan' : 'Da cap nhat thanh toan');
+            setPayments(prev => prev.map(p => p.id === row.id ? {
+                ...p,
+                ...extra,
+                payment_status,
+                method: row.method || 'bank',
+                refunded_at: payment_status === 'refunded' ? new Date().toLocaleString('vi-VN') : p.refunded_at,
+            } : p));
+            showToast(payment_status === 'paid' ? 'Da xac nhan thanh toan' : payment_status === 'refunded' ? 'Da ghi nhan hoan tien' : 'Da cap nhat thanh toan');
             closeModal();
         } catch (err) {
             showToast(err.message || 'Loi cap nhat thanh toan', 'error');
         }
+    }
+
+    function submitRefund(event) {
+        event.preventDefault();
+        if (!selected) return;
+        updatePayment(selected, 'refunded', refundForm);
     }
 
     if (loading) return <div style={{ padding: '2rem' }}>Dang tai...</div>;
@@ -103,7 +139,7 @@ export default function Payments() {
                                         <div className="act-row">
                                             <button type="button" className="ic-btn" title="Chi tiet" onClick={() => { setSelected(t); setModal('detail'); }}>⊙</button>
                                             {t.payment_status === 'pending_verification' && <button className="ic-btn ok" title="Duyet thanh toan" onClick={() => updatePayment(t, 'paid')}>✓</button>}
-                                            {t.payment_status === 'paid' && <button className="ic-btn del" title="Hoan tien" onClick={() => { setSelected(t); setModal('refund'); }}>↩</button>}
+                                            {t.payment_status === 'paid' && <button className="ic-btn del" title="Hoan tien" onClick={() => openRefundModal(t)}>↩</button>}
                                         </div>
                                     </td>
                                 </tr>
@@ -136,19 +172,46 @@ export default function Payments() {
                         <InfoRow label="Ma/chung tu" value={selected.proof_code} />
                         <InfoRow label="Ghi chu" value={selected.proof_note} />
                         <InfoRow label="Thoi gian" value={selected.paid_at || selected.submitted_at} />
+                        {selected.payment_status === 'refunded' && (
+                            <>
+                                <InfoRow label="So tien hoan" value={selected.refund_amount ? Number(selected.refund_amount).toLocaleString('vi-VN') + 'd' : '-'} />
+                                <InfoRow label="Ma hoan tien" value={selected.refund_reference} />
+                                <InfoRow label="Ly do" value={selected.refund_reason} />
+                                <InfoRow label="Ghi chu hoan" value={selected.refund_note} />
+                                <InfoRow label="Thoi gian hoan" value={selected.refunded_at} />
+                            </>
+                        )}
                     </div>
                 )}
             </Modal>
 
-            <ConfirmModal
-                isOpen={modal === 'refund'}
-                onClose={closeModal}
-                title="Hoan tien giao dich"
-                message={`Chuyen giao dich ${selected?.code || ''} sang trang thai da hoan tien?`}
-                confirmLabel="Hoan tien"
-                danger
-                onConfirm={() => selected && updatePayment(selected, 'refunded')}
-            />
+            <Modal isOpen={modal === 'refund'} onClose={closeModal} title={`Hoan tien ${selected?.code || ''}`} size="md">
+                <form onSubmit={submitRefund}>
+                    <div className="form-row">
+                        <div>
+                            <label className="label">So tien hoan</label>
+                            <input className="input" type="number" min="1" max={selected?.amount || undefined} value={refundForm.refund_amount} onChange={(e) => setRefundForm({ ...refundForm, refund_amount: e.target.value })} required />
+                        </div>
+                        <div>
+                            <label className="label">Ma/chung tu hoan</label>
+                            <input className="input" value={refundForm.refund_reference} onChange={(e) => setRefundForm({ ...refundForm, refund_reference: e.target.value })} placeholder="VD: FT..." />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label className="label">Ly do hoan tien</label>
+                        <textarea className="input" rows="3" value={refundForm.refund_reason} onChange={(e) => setRefundForm({ ...refundForm, refund_reason: e.target.value })} required />
+                    </div>
+                    <div className="form-group">
+                        <label className="label">Ghi chu noi bo</label>
+                        <textarea className="input" rows="2" value={refundForm.refund_note} onChange={(e) => setRefundForm({ ...refundForm, refund_note: e.target.value })} />
+                    </div>
+                    <div className="modal-footer" style={{ margin: '1.25rem -1.35rem -1.25rem' }}>
+                        <button type="button" className="btn-secondary" onClick={closeModal}>Huy</button>
+                        <button type="submit" className="btn-primary danger">Xac nhan da hoan tien</button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }
+

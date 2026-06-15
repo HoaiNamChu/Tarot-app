@@ -8,6 +8,7 @@ export default function PaymentResult() {
     const navigate = useNavigate();
     const status = params.get('status');
     const bookingId = params.get('booking_id');
+    const gateway = params.get('gateway') || 'vnpay';
     const { refreshBookings } = useAuth();
     const [retrying, setRetrying] = useState(false);
     const [retryError, setRetryError] = useState('');
@@ -37,7 +38,7 @@ export default function PaymentResult() {
         setRetryError('');
 
         try {
-            const res = await api.bookings.pay(bookingId, 'vnpay');
+            const res = await api.bookings.pay(bookingId, gateway);
 
             if (res.payment_url) {
                 window.location.href = res.payment_url;

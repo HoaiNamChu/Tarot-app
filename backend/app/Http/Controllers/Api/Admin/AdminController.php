@@ -14,13 +14,20 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use App\Mail\BookingConfirmed;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BookingCancelled;
 use App\Services\Booking\CreateBookingService;
+use App\Services\NotificationService;
+use App\Services\Payment\PaymentGatewayConfig;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
+    private const PUBLIC_READERS_CACHE_KEY = 'public:readers:active:v1';
+    private const PUBLIC_SERVICES_CACHE_KEY = 'public:services:active:v1';
+
     public function stats()
     {
         $now = now();
@@ -105,9 +112,128 @@ class AdminController extends Controller
         ]);
     }
 
+    public function search(Request $request)
+    {
+        $data = $request->validate([
+            'q' => 'nullable|string|max:100',
+        ]);
+
+        $term = trim($data['q'] ?? '');
+        if (Str::length($term) < 2) {
+            return response()->json([]);
+        }
+
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $term) . '%';
+        $bookingId = preg_match('/\d+/', $term, $matches) ? (int) $matches[0] : null;
+
+        $bookings = Booking::with(['user', 'reader', 'service'])
+            ->where(function ($query) use ($like, $bookingId) {
+                if ($bookingId) {
+                    $query->orWhere('id', $bookingId);
+                }
+                $query->orWhere('status', 'like', $like)
+                    ->orWhere('payment_status', 'like', $like)
+                    ->orWhereHas('user', fn($q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like)->orWhere('phone', 'like', $like))
+                    ->orWhereHas('reader', fn($q) => $q->where('name', 'like', $like))
+                    ->orWhereHas('service', fn($q) => $q->where('name', 'like', $like));
+            })
+            ->latest('booked_at')
+            ->limit(5)
+            ->get()
+            ->map(fn($booking) => [
+                'type' => 'booking',
+                'title' => 'BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' - ' . $booking->user?->name,
+                'subtitle' => trim(($booking->service?->name ?? 'Dich vu') . ' / ' . ($booking->reader?->name ?? 'Reader') . ' / ' . $booking->booked_at?->format('d/m/Y H:i')),
+                'to' => '/bookings',
+            ]);
+
+        $users = User::where('role', 'user')
+            ->where(fn($query) => $query->where('name', 'like', $like)->orWhere('email', 'like', $like)->orWhere('phone', 'like', $like))
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn($user) => [
+                'type' => 'user',
+                'title' => $user->name,
+                'subtitle' => trim(($user->email ?? '') . ' ' . ($user->phone ?? '')),
+                'to' => '/users',
+            ]);
+
+        $readers = Reader::where(fn($query) => $query->where('name', 'like', $like)->orWhere('title', 'like', $like)->orWhere('email', 'like', $like)->orWhere('phone', 'like', $like))
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn($reader) => [
+                'type' => 'reader',
+                'title' => $reader->name,
+                'subtitle' => trim(($reader->title ?? 'Tarot Reader') . ' ' . ($reader->email ?? '')),
+                'to' => '/readers',
+            ]);
+
+        $services = Service::where(fn($query) => $query->where('name', 'like', $like)->orWhere('description', 'like', $like))
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn($service) => [
+                'type' => 'service',
+                'title' => $service->name,
+                'subtitle' => $service->duration . ' phut / ' . number_format($service->price, 0, ',', '.') . 'd',
+                'to' => '/content',
+            ]);
+
+        $payments = Booking::with(['user', 'service', 'latestPayment'])
+            ->whereIn('payment_status', ['paid', 'pending_verification', 'refunded'])
+            ->where(function ($query) use ($like, $bookingId) {
+                if ($bookingId) {
+                    $query->orWhere('id', $bookingId);
+                }
+                $query->orWhere('payment_status', 'like', $like)
+                    ->orWhere('payment_method', 'like', $like)
+                    ->orWhereHas('user', fn($q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like))
+                    ->orWhereHas('service', fn($q) => $q->where('name', 'like', $like));
+            })
+            ->latest('updated_at')
+            ->limit(5)
+            ->get()
+            ->map(fn($booking) => [
+                'type' => 'payment',
+                'title' => 'Thanh toan BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT),
+                'subtitle' => trim(($booking->user?->name ?? '') . ' / ' . $booking->payment_status . ' / ' . number_format($booking->service?->price ?? 0, 0, ',', '.') . 'd'),
+                'to' => '/payments',
+            ]);
+
+        $reviews = Review::with(['user', 'reader'])
+            ->where(function ($query) use ($like) {
+                $query->where('content', 'like', $like)
+                    ->orWhere('status', 'like', $like)
+                    ->orWhereHas('user', fn($q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like))
+                    ->orWhereHas('reader', fn($q) => $q->where('name', 'like', $like));
+            })
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn($review) => [
+                'type' => 'review',
+                'title' => ($review->user?->name ?? 'Khach hang') . ' - ' . $review->stars . ' sao',
+                'subtitle' => Str::limit($review->content ?? '', 80),
+                'to' => '/reviews',
+            ]);
+
+        return response()->json(
+            $bookings
+                ->concat($users)
+                ->concat($readers)
+                ->concat($services)
+                ->concat($payments)
+                ->concat($reviews)
+                ->take(12)
+                ->values()
+        );
+    }
+
     public function bookings(Request $request)
     {
-        $query = Booking::with(['user', 'reader', 'service'])
+        $query = Booking::with(['user', 'reader', 'service', 'latestPayment'])
             ->orderBy('booked_at', 'desc');
 
         if ($request->status && $request->status !== 'all') {
@@ -131,6 +257,11 @@ class AdminController extends Controller
             'status'         => $b->status,
             'payment_status' => $b->payment_status,
             'payment_method' => $b->payment_method,
+            'refund_amount' => $b->latestPayment?->refund_amount,
+            'refund_reference' => $b->latestPayment?->refund_reference,
+            'refund_reason' => $b->latestPayment?->refund_reason,
+            'refund_note' => $b->latestPayment?->refund_note,
+            'refunded_at' => $b->latestPayment?->refunded_at?->format('d/m/Y H:i'),
             'zoom_link'      => $b->zoom_link,
             'note'           => $b->note,
         ]));
@@ -150,7 +281,7 @@ class AdminController extends Controller
             'note'           => 'nullable|string|max:1000',
         ]);
 
-        return DB::transaction(function () use ($data, $service) {
+        return DB::transaction(function () use ($data, $service, $request) {
         $email = $data['customer_email'] ?? 'walkin-' . Str::uuid() . '@local.lunaarcana';
         $user = User::firstOrCreate(
             ['email' => $email],
@@ -178,6 +309,13 @@ class AdminController extends Controller
             'note'       => $note,
         ], false);
 
+        $this->logAdminAction($request, 'booking.create', $booking, [
+            'customer' => $booking->user->name,
+            'reader' => $booking->reader->name,
+            'service' => $booking->service->name,
+            'booked_at' => $booking->booked_at->toIso8601String(),
+        ]);
+
         return response()->json([
             'id'             => $booking->id,
             'code'           => 'BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT),
@@ -201,7 +339,7 @@ class AdminController extends Controller
         });
     }
 
-    public function confirmBooking($id)
+    public function confirmBooking(Request $request, $id)
     {
         $booking = Booking::with(['user', 'reader', 'service'])->findOrFail($id);
 
@@ -210,12 +348,14 @@ class AdminController extends Controller
         }
 
         $booking->update(['status' => 'confirmed']);
-        Mail::to($booking->user->email)->queue(new BookingConfirmed($booking));
+        $this->queueBookingMailSafely($booking, BookingConfirmed::class, 'Booking confirmation mail failed');
+        $this->logAdminAction($request, 'booking.confirm', $booking, ['status' => 'confirmed']);
+        app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.confirmed', 'Lich da duoc xac nhan', 'Lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' da duoc admin xac nhan.');
 
         return response()->json(['message' => 'Đã xác nhận lịch.']);
     }
 
-    public function cancelBooking($id)
+    public function cancelBooking(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
         $booking->load(['user', 'reader', 'service']);
@@ -225,12 +365,14 @@ class AdminController extends Controller
             'cancelled_at' => now(),  // FIX: trước đây thiếu
         ]);
 
-        Mail::to($booking->user->email)->queue(new BookingCancelled($booking));
+        $this->queueBookingMailSafely($booking, BookingCancelled::class, 'Booking cancellation mail failed');
+        $this->logAdminAction($request, 'booking.cancel', $booking, ['status' => 'cancelled']);
+        app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.cancelled_by_admin', 'Admin da huy lich', 'Lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' da bi huy.');
 
         return response()->json(['message' => 'Đã huỷ lịch.']);
     }
 
-    public function completeBooking($id)
+    public function completeBooking(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
 
@@ -269,6 +411,9 @@ class AdminController extends Controller
         }
 
         $booking->update($updates);
+        $this->logAdminAction($request, 'booking.status', $booking, ['status' => $booking->status]);
+        $booking->load(['user', 'reader.user', 'service']);
+        app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.status_changed', 'Trang thai lich da doi', 'Lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' chuyen sang ' . $booking->status, ['status' => $booking->status]);
 
         return response()->json([
             'message' => 'Da cap nhat trang thai lich.',
@@ -281,7 +426,9 @@ class AdminController extends Controller
         $request->validate(['zoom_link' => 'required|url']);
         $booking = Booking::with(['user', 'reader', 'service'])->findOrFail($id);
         $booking->update(['zoom_link' => $request->zoom_link]);
-        Mail::to($booking->user->email)->queue(new BookingConfirmed($booking));
+        $this->queueBookingMailSafely($booking, BookingConfirmed::class, 'Booking zoom mail failed');
+        $this->logAdminAction($request, 'booking.zoom', $booking, ['zoom_link' => $request->zoom_link]);
+        app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.zoom_updated', 'Link Zoom da duoc cap nhat', 'Lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' da co link Zoom.');
 
         return response()->json(['message' => 'Đã cập nhật link Zoom.']);
     }
@@ -354,6 +501,8 @@ class AdminController extends Controller
             ]);
         });
 
+        $this->forgetPublicReaderCache();
+
         return response()->json([
             'id'             => $reader->id,
             'name'           => $reader->name,
@@ -386,6 +535,8 @@ class AdminController extends Controller
         ]);
 
         $reader->update($data);
+        $this->forgetPublicReaderCache();
+
         return response()->json($reader);
     }
 
@@ -395,11 +546,14 @@ class AdminController extends Controller
 
         if ($reader->bookings()->exists()) {
             $reader->update(['is_active' => false]);
+            $this->forgetPublicReaderCache();
+
             return response()->json(['message' => 'Reader da co lich dat nen da duoc an thay vi xoa.']);
         }
 
         $reader->user?->delete();
         $reader->delete();
+        $this->forgetPublicReaderCache();
         return response()->json(['message' => 'Đã xoá Reader.']);
     }
 
@@ -426,6 +580,8 @@ class AdminController extends Controller
             'is_active'   => $request->boolean('is_active', true),
         ]);
 
+        $this->forgetPublicServiceCache();
+
         return response()->json($service, 201);
     }
 
@@ -441,6 +597,7 @@ class AdminController extends Controller
         ]);
 
         $service->update($data);
+        $this->forgetPublicServiceCache();
 
         return response()->json($service);
     }
@@ -451,10 +608,13 @@ class AdminController extends Controller
 
         if ($service->bookings()->exists()) {
             $service->update(['is_active' => false]);
+            $this->forgetPublicServiceCache();
+
             return response()->json(['message' => 'Dich vu da co lich dat nen da duoc an thay vi xoa.']);
         }
 
         $service->delete();
+        $this->forgetPublicServiceCache();
 
         return response()->json(['message' => 'Da xoa dich vu.']);
     }
@@ -671,6 +831,11 @@ class AdminController extends Controller
                     'payment_status' => $b->payment_status,
                     'proof_code'     => $b->latestPayment?->proof_code,
                     'proof_note'     => $b->latestPayment?->proof_note,
+                    'refund_amount'  => $b->latestPayment?->refund_amount,
+                    'refund_reference' => $b->latestPayment?->refund_reference,
+                    'refund_reason'  => $b->latestPayment?->refund_reason,
+                    'refund_note'    => $b->latestPayment?->refund_note,
+                    'refunded_at'    => $b->latestPayment?->refunded_at?->format('d/m/Y H:i'),
                     'submitted_at'   => $b->latestPayment?->submitted_at?->format('d/m/Y H:i'),
                     'verified_at'    => $b->latestPayment?->verified_at?->format('d/m/Y H:i'),
                     // FIX: dùng paid_at, fallback updated_at cho data cũ
@@ -735,8 +900,152 @@ class AdminController extends Controller
         return response()->json(['message' => $msg]);
     }
 
+    public function updatePaymentWithRefundAudit(Request $request, $id)
+    {
+        $data = $request->validate([
+            'payment_status' => 'required|in:paid,unpaid,pending_verification,refunded',
+            'payment_method' => 'nullable|in:vnpay,bank,vietqr,cash,momo',
+            'refund_amount' => 'nullable|numeric|min:0.01',
+            'refund_reference' => 'nullable|string|max:255',
+            'refund_reason' => 'nullable|string|max:1000',
+            'refund_note' => 'nullable|string|max:2000',
+        ]);
+
+        $result = DB::transaction(function () use ($data, $id, $request) {
+            $booking = Booking::with(['service', 'payments'])->lockForUpdate()->findOrFail($id);
+
+            if ($data['payment_status'] === 'refunded') {
+                if ($booking->payment_status !== 'paid') {
+                    return response()->json([
+                        'message' => 'Chi co the hoan tien booking da thanh toan.',
+                    ], 422);
+                }
+
+                if (empty($data['refund_amount']) || empty($data['refund_reason'])) {
+                    return response()->json([
+                        'message' => 'Vui long nhap so tien va ly do hoan tien.',
+                    ], 422);
+                }
+
+                if ((float) $data['refund_amount'] > (float) $booking->service->price) {
+                    return response()->json([
+                        'message' => 'So tien hoan khong duoc lon hon gia tri booking.',
+                    ], 422);
+                }
+            }
+
+            $method = $data['payment_method'] ?? $booking->payment_method ?? 'bank';
+
+            $bookingUpdate = [
+                'payment_status' => $data['payment_status'],
+                'payment_method' => $method,
+            ];
+
+            if ($data['payment_status'] === 'paid') {
+                $bookingUpdate['paid_at'] = now();
+            } elseif (in_array($data['payment_status'], ['unpaid', 'pending_verification'], true)) {
+                $bookingUpdate['paid_at'] = null;
+            }
+
+            $booking->update($bookingUpdate);
+
+            $payment = $booking->payments()->latest('id')->first();
+            if (!$payment && in_array($data['payment_status'], ['paid', 'pending_verification', 'refunded'], true)) {
+                $payment = Payment::create([
+                    'booking_id' => $booking->id,
+                    'gateway' => $method,
+                    'amount' => $booking->service->price,
+                    'status' => $data['payment_status'] === 'paid' ? Payment::SUCCESS : Payment::PENDING,
+                ]);
+            }
+
+            if ($payment && $data['payment_status'] === 'paid') {
+                $payment->update([
+                    'status' => Payment::SUCCESS,
+                    'verified_by' => $request->user()->id,
+                    'verified_at' => now(),
+                    'paid_at' => now(),
+                    'refund_amount' => null,
+                    'refund_reference' => null,
+                    'refund_reason' => null,
+                    'refund_note' => null,
+                    'refunded_by' => null,
+                    'refunded_at' => null,
+                ]);
+            } elseif ($payment && $data['payment_status'] === 'pending_verification') {
+                $payment->update([
+                    'status' => Payment::PENDING,
+                    'verified_by' => null,
+                    'verified_at' => null,
+                    'paid_at' => null,
+                    'refund_amount' => null,
+                    'refund_reference' => null,
+                    'refund_reason' => null,
+                    'refund_note' => null,
+                    'refunded_by' => null,
+                    'refunded_at' => null,
+                ]);
+            } elseif ($payment && $data['payment_status'] === 'refunded') {
+                $payment->update([
+                    'status' => Payment::REFUNDED,
+                    'refund_amount' => $data['refund_amount'],
+                    'refund_reference' => $data['refund_reference'] ?? null,
+                    'refund_reason' => $data['refund_reason'],
+                    'refund_note' => $data['refund_note'] ?? null,
+                    'refunded_by' => $request->user()->id,
+                    'refunded_at' => now(),
+                ]);
+            }
+
+            $this->logAdminAction($request, 'payment.update', $booking, [
+                'payment_status' => $data['payment_status'],
+                'payment_method' => $method,
+                'refund_amount' => $data['refund_amount'] ?? null,
+                'refund_reference' => $data['refund_reference'] ?? null,
+            ]);
+
+            return null;
+        });
+
+        if ($result) {
+            return $result;
+        }
+
+        $bookingForNotification = Booking::with(['user', 'reader.user', 'service'])->find($id);
+        if ($bookingForNotification) {
+            $notificationTitle = match ($data['payment_status']) {
+                'paid' => 'Thanh toan da duoc xac nhan',
+                'pending_verification' => 'Thanh toan dang cho xac minh',
+                'refunded' => 'Thanh toan da hoan tien',
+                default => 'Trang thai thanh toan da doi',
+            };
+            app(NotificationService::class)->notifyReaderForBooking(
+                $bookingForNotification,
+                'payment.' . $data['payment_status'],
+                $notificationTitle,
+                'Lich BK-' . str_pad($bookingForNotification->id, 4, '0', STR_PAD_LEFT) . ' co trang thai thanh toan: ' . $data['payment_status'],
+                ['payment_status' => $data['payment_status']]
+            );
+        }
+
+        $msg = match ($data['payment_status']) {
+            'pending_verification' => 'Da chuyen ve cho xac minh thanh toan.',
+            'paid' => 'Da danh dau thanh toan.',
+            'unpaid' => 'Da danh dau chua thanh toan.',
+            'refunded' => 'Da ghi nhan thong tin hoan tien.',
+        };
+
+        return response()->json(['message' => $msg]);
+    }
+
     public function settings()
     {
+        return response()->json($this->settingsPayload());
+    }
+
+    private function settingsPayload(): array
+    {
+        $gatewayConfig = app(PaymentGatewayConfig::class);
         $defaults = [
             'brand_name' => 'Luna Arcana',
             'contact_email' => config('mail.from.address', 'hello@example.com'),
@@ -747,13 +1056,47 @@ class AdminController extends Controller
             'bank_account_number' => config('tarot.bank.account_number'),
             'bank_account_name' => config('tarot.bank.account_name'),
             'bank_transfer_prefix' => config('tarot.bank.transfer_prefix'),
+            'payment_vnpay_enabled' => '1',
+            'payment_bank_enabled' => '1',
+            'payment_momo_enabled' => '0',
+            'momo_phone' => '',
+            'momo_account_name' => '',
+            'momo_transfer_prefix' => 'MOMO',
+            'vnpay_tmn_code' => config('vnpay.tmn_code'),
+            'vnpay_hash_secret' => '',
+            'vnpay_url' => config('vnpay.url'),
+            'vnpay_return_url' => config('vnpay.return_url'),
+            'vnpay_ipn_url' => config('vnpay.ipn_url'),
+            'momo_partner_code' => config('momo.partner_code'),
+            'momo_access_key' => config('momo.access_key'),
+            'momo_secret_key' => '',
+            'momo_endpoint' => config('momo.endpoint'),
+            'momo_redirect_url' => config('momo.redirect_url'),
+            'momo_ipn_url' => config('momo.ipn_url'),
+            'momo_lang' => config('momo.lang', 'vi'),
             'reader_commission_percent' => '30',
         ];
 
         $saved = AppSetting::whereIn('key', array_keys($defaults))->pluck('value', 'key');
+        $secretKeys = ['vnpay_hash_secret', 'momo_secret_key'];
 
-        return response()->json(collect($defaults)
-            ->mapWithKeys(fn($value, $key) => [$key => $saved[$key] ?? $value]));
+        $payload = collect($defaults)
+            ->mapWithKeys(function ($value, $key) use ($saved) {
+                if (in_array($key, ['payment_vnpay_enabled', 'payment_bank_enabled', 'payment_momo_enabled'], true)) {
+                    return [$key => AppSetting::getBool($key, $value === '1')];
+                }
+
+                return [$key => $saved[$key] ?? $value];
+            })
+            ->mapWithKeys(fn($value, $key) => in_array($key, $secretKeys, true) ? [$key => ''] : [$key => $value])
+            ->all();
+
+        return array_merge($payload, [
+            'vnpay_gateway_configured' => $gatewayConfig->missingVnpay() === [],
+            'vnpay_hash_secret_configured' => filled($gatewayConfig->vnpay()['hash_secret']),
+            'momo_gateway_configured' => $gatewayConfig->missingMomo() === [],
+            'momo_secret_key_configured' => filled($gatewayConfig->momo()['secret_key']),
+        ]);
     }
 
     public function updateSettings(Request $request)
@@ -768,16 +1111,46 @@ class AdminController extends Controller
             'bank_account_number' => 'required|string|max:100',
             'bank_account_name' => 'required|string|max:255',
             'bank_transfer_prefix' => 'required|string|max:30',
+            'payment_vnpay_enabled' => 'required|boolean',
+            'payment_bank_enabled' => 'required|boolean',
+            'payment_momo_enabled' => 'required|boolean',
+            'momo_phone' => 'nullable|string|max:30',
+            'momo_account_name' => 'nullable|string|max:255',
+            'momo_transfer_prefix' => 'nullable|string|max:30',
+            'vnpay_tmn_code' => 'nullable|string|max:100',
+            'vnpay_hash_secret' => 'nullable|string|max:255',
+            'vnpay_url' => 'nullable|url|max:500',
+            'vnpay_return_url' => 'nullable|url|max:500',
+            'vnpay_ipn_url' => 'nullable|url|max:500',
+            'momo_partner_code' => 'nullable|string|max:100',
+            'momo_access_key' => 'nullable|string|max:255',
+            'momo_secret_key' => 'nullable|string|max:255',
+            'momo_endpoint' => 'nullable|url|max:500',
+            'momo_redirect_url' => 'nullable|url|max:500',
+            'momo_ipn_url' => 'nullable|url|max:500',
+            'momo_lang' => 'nullable|string|max:10',
             'reader_commission_percent' => 'required|integer|min:0|max:100',
         ]);
 
+        $secretKeys = ['vnpay_hash_secret', 'momo_secret_key'];
         foreach ($data as $key => $value) {
-            AppSetting::updateOrCreate(['key' => $key], ['value' => (string) $value]);
+            if (in_array($key, $secretKeys, true) && blank($value)) {
+                continue;
+            }
+
+            AppSetting::updateOrCreate(['key' => $key], ['value' => is_bool($value) ? ($value ? '1' : '0') : (string) $value]);
         }
 
-        $this->logAdminAction($request, 'settings.update', null, $data);
+        $logData = $data;
+        foreach ($secretKeys as $key) {
+            if (array_key_exists($key, $logData)) {
+                $logData[$key] = blank($logData[$key]) ? '(unchanged)' : '(updated)';
+            }
+        }
 
-        return response()->json(['message' => 'Da luu cau hinh.', 'settings' => $data]);
+        $this->logAdminAction($request, 'settings.update', null, $logData);
+
+        return response()->json(['message' => 'Da luu cau hinh.', 'settings' => $this->settingsPayload()]);
     }
 
     public function actionLogs()
@@ -800,5 +1173,27 @@ class AdminController extends Controller
             'payload' => $payload,
             'ip_address' => $request->ip(),
         ]);
+    }
+
+    private function queueBookingMailSafely(Booking $booking, string $mailableClass, string $logMessage): void
+    {
+        try {
+            Mail::to($booking->user->email)->queue(new $mailableClass($booking));
+        } catch (\Throwable $e) {
+            Log::warning($logMessage, [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function forgetPublicReaderCache(): void
+    {
+        Cache::forget(self::PUBLIC_READERS_CACHE_KEY);
+    }
+
+    private function forgetPublicServiceCache(): void
+    {
+        Cache::forget(self::PUBLIC_SERVICES_CACHE_KEY);
     }
 }

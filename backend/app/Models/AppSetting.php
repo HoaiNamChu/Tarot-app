@@ -12,4 +12,15 @@ class AppSetting extends Model
     {
         return static::where('key', $key)->value('value') ?? $default;
     }
+
+    public static function getBool(string $key, bool $default = false): bool
+    {
+        $value = static::where('key', $key)->value('value');
+
+        if ($value === null) {
+            return $default;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
 }

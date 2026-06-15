@@ -10,7 +10,9 @@ function Services() {
   const [services, setServices] = useState([]);
 
   useEffect(() => {
-    api.services.getAll().then(setServices).catch(() => { });
+    api.services.getAll()
+      .then(data => setServices(Array.isArray(data) ? data : []))
+      .catch(() => setServices([]));
   }, []);
 
   function selectService(svc) {
@@ -25,7 +27,7 @@ function Services() {
         <h2 className="section-title">Các Gói <em>Giải Mã</em></h2>
       </div>
       <div className={styles['services-grid']}>
-        {services.map(svc => (
+        {(Array.isArray(services) ? services : []).map(svc => (
           <div key={svc.id} className={styles.svc} onClick={() => selectService(svc)}>
             <span className={styles['svc-icon']}>
               {svc.id === 1 ? '✨' : svc.id === 2 ? '🌙' : '🎡'}

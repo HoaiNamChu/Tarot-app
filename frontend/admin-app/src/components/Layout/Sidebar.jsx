@@ -1,46 +1,56 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 
-const NAV = [
+const ADMIN_NAV = [
     {
-        section: 'Tổng quan', items: [
-            { to: '/', icon: '◈', label: 'Dashboard' },
-            { to: '/analytics', icon: '∿', label: 'Phân tích' },
-        ]
+        section: 'Tong quan', items: [
+            { to: '/', icon: '◆', label: 'Dashboard' },
+            { to: '/analytics', icon: '∿', label: 'Phan tich' },
+        ],
     },
     {
-        section: 'Quản lý', items: [
-            { to: '/bookings', icon: '◷', label: 'Đặt lịch' },
+        section: 'Quan ly', items: [
+            { to: '/bookings', icon: '◇', label: 'Dat lich' },
             { to: '/readers', icon: '✦', label: 'Tarot Reader' },
-            { to: '/users', icon: '○', label: 'Khách hàng' },
-            { to: '/reviews', icon: '◇', label: 'Đánh giá' },
-        ]
+            { to: '/users', icon: '○', label: 'Khach hang' },
+            { to: '/reviews', icon: '◈', label: 'Danh gia' },
+        ],
     },
     {
-        section: 'Tài chính', items: [
-            { to: '/payments', icon: '⬡', label: 'Thanh toán' },
-        ]
+        section: 'Tai chinh', items: [
+            { to: '/payments', icon: '⇅', label: 'Thanh toan' },
+        ],
     },
     {
-        section: 'Hệ thống', items: [
-            { to: '/content', icon: '▤', label: 'Nội dung' },
-            { to: '/settings', icon: '◎', label: 'Cài đặt' },
-        ]
+        section: 'He thong', items: [
+            { to: '/content', icon: '▤', label: 'Noi dung' },
+            { to: '/settings', icon: '●', label: 'Cai dat' },
+        ],
+    },
+];
+
+const READER_NAV = [
+    {
+        section: 'Reader', items: [
+            { to: '/', icon: '◈', label: 'Tong quan' },
+        ],
     },
 ];
 
 export default function Sidebar({ admin, onLogout, onClose, isOpen }) {
     const navigate = useNavigate();
-    const initials = admin?.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const initials = admin?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'U';
+    const isReader = admin?.role === 'reader';
+    const nav = isReader ? READER_NAV : ADMIN_NAV;
 
     return (
         <aside className={`sidebar${isOpen ? ' open' : ''}`} id="sidebar">
             <div className="sb-logo">
                 <div className="sb-logo-name">
-                    🌙 Luna Arcana <span className="sb-logo-pill">Admin</span>
+                    Luna Arcana <span className="sb-logo-pill">{isReader ? 'Reader' : 'Admin'}</span>
                 </div>
             </div>
 
-            {NAV.map(group => (
+            {nav.map(group => (
                 <div key={group.section} className="sb-sec">
                     <div className="sb-sec-lbl">{group.section}</div>
                     {group.items.map(item => (
@@ -53,7 +63,6 @@ export default function Sidebar({ admin, onLogout, onClose, isOpen }) {
                         >
                             <span className="sbi-ic">{item.icon}</span>
                             {item.label}
-                            {item.pill && <span className={`sb-pill ${item.pill.cls}`}>{item.pill.text}</span>}
                         </NavLink>
                     ))}
                 </div>
@@ -64,12 +73,15 @@ export default function Sidebar({ admin, onLogout, onClose, isOpen }) {
                     <div className="sb-av">{initials}</div>
                     <div>
                         <div className="sb-uname">{admin?.name}</div>
-                        <div className="sb-urole">{admin?.role === 'admin' ? 'Admin' : admin?.role || 'User'}</div>
+                        <div className="sb-urole">{isReader ? 'Reader' : admin?.role === 'admin' ? 'Admin' : admin?.role || 'User'}</div>
                     </div>
                 </div>
-                <button className="btn-ghost" style={{ width: '100%', marginTop: '.75rem', fontSize: '.68rem' }}
-                    onClick={() => { onLogout(); navigate('/'); }}>
-                    Đăng xuất
+                <button
+                    className="btn-ghost"
+                    style={{ width: '100%', marginTop: '.75rem', fontSize: '.68rem' }}
+                    onClick={() => { onLogout(); navigate('/'); }}
+                >
+                    Dang xuat
                 </button>
             </div>
         </aside>

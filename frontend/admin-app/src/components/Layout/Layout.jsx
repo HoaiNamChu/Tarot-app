@@ -45,12 +45,12 @@ export default function Layout() {
       <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar admin={admin} onLogout={() => { logout(); navigate('/login'); }} onClose={() => setSidebarOpen(false)} isOpen={sidebarOpen} />
       <div className="main">
-        <Topbar onHamburger={() => setSidebarOpen(o => !o)} onAddBooking={() => openAddBooking()} />
+        <Topbar admin={admin} onHamburger={() => setSidebarOpen(o => !o)} onAddBooking={() => openAddBooking()} />
         <div className="content">
           <Outlet context={{ onAddBooking: openAddBooking }} />
         </div>
       </div>
-      <AddBookingModal key={bookingModalKey} isOpen={modalOpen} onClose={closeAddBooking} initialCustomer={bookingCustomer} />
+      {admin.role === 'admin' && <AddBookingModal key={bookingModalKey} isOpen={modalOpen} onClose={closeAddBooking} initialCustomer={bookingCustomer} />}
     </div>
   );
 }

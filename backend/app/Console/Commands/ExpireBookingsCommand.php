@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\Booking;
 use Illuminate\Support\Facades\DB;
 use App\Models\Payment;
+use App\Services\NotificationService;
 
 class ExpireBookingsCommand extends Command
 {
@@ -31,6 +32,13 @@ class ExpireBookingsCommand extends Command
                     'status'       => 'cancelled',
                     'cancelled_at' => now(),
                 ]);
+
+                $booking->load(['user', 'reader.user', 'service']);
+                app(NotificationService::class)->notifyAdmins('booking.expired', 'Lich het han thanh toan', ($booking->user?->name ?? 'Khach hang') . ' co lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' da het han thanh toan.', '/bookings', [
+                    'booking_id' => $booking->id,
+                    'reader' => $booking->reader?->name,
+                ]);
+                app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.expired', 'Lich da het han thanh toan', 'Lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . ' da tu dong huy do het han thanh toan.');
             }
 
             $this->info('Expired ' . $bookings->count() . ' bookings');

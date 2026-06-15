@@ -5,6 +5,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api.js';
 
+function monthFromDateTime(value) {
+  return value ? value.slice(0, 7) : null;
+}
+
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function Booking() {
   const { isLoggedIn, openModal, refreshBookings } = useAuth();
   const showToast = useToast();
@@ -23,42 +31,42 @@ function Booking() {
     note: '',
   });
 
-  // Fetch data — chỉ 1 useEffect duy nhất
+  const busySlotMonth = monthFromDateTime(form.booked_at);
+
   useEffect(() => {
     Promise.all([
       api.services.getAll(),
       api.readers.getAll(),
     ]).then(([servicesData, readersData]) => {
-      setServices(servicesData);
-      setReaders(readersData);
+      const normalizedServices = safeArray(servicesData);
+      const normalizedReaders = safeArray(readersData);
+      setServices(normalizedServices);
+      setReaders(normalizedReaders);
 
       const serviceId = searchParams.get('service');
       const readerId = searchParams.get('reader');
 
       setForm(p => ({
         ...p,
-        service_id: serviceId || (servicesData.length ? String(servicesData[0].id) : ''),
+        service_id: serviceId || (normalizedServices.length ? String(normalizedServices[0].id) : ''),
         reader_id: readerId || '',
       }));
 
       if (serviceId || readerId) {
         setSearchParams({}, { replace: true });
-        // Đợi DOM cập nhật rồi mới scroll
         setTimeout(() => {
           document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
         }, 150);
       }
     }).catch(() => { /* ignore */ });
-  }, [searchParams, setSearchParams]); // chỉ chạy 1 lần khi mount
+  }, [searchParams, setSearchParams]);
 
-  // Lắng nghe searchParams thay đổi sau khi đã mount
-  // (khi user click từ Services/Readers sang)
   useEffect(() => {
     const serviceId = searchParams.get('service');
     const readerId = searchParams.get('reader');
 
     if (!serviceId && !readerId) return;
-    if (!services.length && !readers.length) return; // chờ data load
+    if (!services.length && !readers.length) return;
 
     setForm(p => ({
       ...p,
@@ -73,46 +81,57 @@ function Booking() {
     }, 150);
   }, [searchParams, services, readers, setSearchParams]);
 
-  // Fetch busy slots khi chọn reader
   useEffect(() => {
-    if (!form.reader_id) { setBusySlots([]); return; }
-    const month = new Date().toISOString().slice(0, 7);
-    api.readers.getBusySlots(form.reader_id, month)
-      .then(setBusySlots)
-      .catch(() => { });
-  }, [form.reader_id]);
+    if (!form.reader_id) {
+      setBusySlots([]);
+      return;
+    }
 
-  // Check slot — debounce 600ms
+    api.readers.getBusySlots(form.reader_id, busySlotMonth)
+      .then(data => setBusySlots(safeArray(data)))
+      .catch(() => setBusySlots([]));
+  }, [form.reader_id, busySlotMonth]);
+
   useEffect(() => {
     if (!form.reader_id || !form.booked_at || !form.service_id) {
       setSlotStatus(null);
       return;
     }
+
     setSlotStatus('checking');
     const timer = setTimeout(() => {
       api.readers.checkSlot(form.reader_id, form.booked_at, form.service_id)
         .then(res => setSlotStatus(res.available ? 'available' : 'busy'))
         .catch(() => setSlotStatus(null));
     }, 600);
+
     return () => clearTimeout(timer);
   }, [form.reader_id, form.booked_at, form.service_id]);
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
-    if (name === 'reader_id') setSlotStatus(null);
+    if (name === 'reader_id' || name === 'service_id' || name === 'booked_at') {
+      setSlotStatus(null);
+    }
   }
 
   async function submitBooking() {
-    if (!isLoggedIn) { openModal('login'); return; }
+    if (!isLoggedIn) {
+      openModal('login');
+      return;
+    }
+
     if (!form.reader_id || !form.service_id || !form.booked_at) {
-      showToast('Vui lòng điền đầy đủ thông tin.');
+      showToast('Vui long dien day du thong tin.');
       return;
     }
+
     if (slotStatus === 'busy') {
-      showToast('Khung giờ này đã có người đặt. Vui lòng chọn giờ khác.');
+      showToast('Khung gio nay da co nguoi dat. Vui long chon gio khac.');
       return;
     }
+
     setLoading(true);
     try {
       await api.bookings.create({
@@ -121,8 +140,16 @@ function Booking() {
         booked_at: form.booked_at,
         note: form.note,
       });
-      showToast('✦ Đặt lịch thành công! Chúng tôi sẽ xác nhận qua email.');
+
+      showToast('Dat lich thanh cong! Chung toi se xac nhan qua email.');
       await refreshBookings();
+
+      if (form.reader_id) {
+        api.readers.getBusySlots(form.reader_id, busySlotMonth)
+          .then(data => setBusySlots(safeArray(data)))
+          .catch(() => { });
+      }
+
       setForm(p => ({ ...p, booked_at: '', note: '' }));
       setSlotStatus(null);
     } catch (e) {
@@ -138,19 +165,19 @@ function Booking() {
     <section id="booking" className={styles['booking-section']}>
       <div className={styles['booking-inner']}>
         <div>
-          <div className="sl">Mở Cánh Cửa</div>
+          <div className="sl">Mo canh cua</div>
           <h2 className="section-title" style={{ fontSize: '2.5rem' }}>
-            Đặt Lịch <em>Đọc Bài</em>
+            Dat Lich <em>Doc Bai</em>
           </h2>
           <p style={{ color: 'var(--muted-2)', fontFamily: "'Cormorant Garamond', serif", fontSize: '1.1rem', marginTop: '1rem' }}>
-            Cuộc gặp gỡ nào cũng là một duyên phận. Hãy chọn thời gian phù hợp để chúng ta kết nối.
+            Hay chon reader, goi dich vu va thoi gian phu hop de chung ta ket noi.
           </p>
 
           <div className={styles['booking-steps']}>
             {[
-              { num: '01', title: 'Chọn Dịch Vụ & Reader', desc: 'Tùy vào vấn đề bạn đang gặp phải, hãy chọn chuyên gia phù hợp.' },
-              { num: '02', title: 'Chọn Thời Gian', desc: 'Khung giờ đỏ là đã có người đặt, hãy chọn khung giờ còn trống.' },
-              { num: '03', title: 'Thanh Toán & Chờ Gặp', desc: 'Sau khi xác nhận, link Google Meet sẽ được gửi qua Email.' },
+              { num: '01', title: 'Chon dich vu & Reader', desc: 'Chon chuyen gia phu hop voi van de ban dang quan tam.' },
+              { num: '02', title: 'Chon thoi gian', desc: 'Danh sach lich ban ben duoi giup ban tranh cac khung gio da duoc giu.' },
+              { num: '03', title: 'Thanh toan & xac nhan', desc: 'Sau khi thanh toan, thong tin buoi hen se duoc gui qua email.' },
             ].map(step => (
               <div key={step.num} className={styles.bstep}>
                 <div className={styles['bstep-num']}>{step.num}</div>
@@ -165,16 +192,17 @@ function Booking() {
           {selectedReader && busySlots.length > 0 && (
             <div className={styles['busy-slots']}>
               <div className={styles['busy-slots-title']}>
-                🔴 Lịch bận của {selectedReader.avatar} {selectedReader.name}
+                Lich ban cua {selectedReader.avatar} {selectedReader.name} {busySlotMonth ? `trong thang ${busySlotMonth}` : 'sap toi'}
               </div>
               <div className={styles['busy-slots-list']}>
                 {busySlots.map((slot, i) => (
-                  <div key={i} className={styles['busy-slot-item']}>
-                    📅 {new Date(slot.booked_at).toLocaleDateString('vi-VN')}
+                  <div key={`${slot.booked_at}-${i}`} className={styles['busy-slot-item']}>
+                    {slot.date_label || new Date(slot.booked_at).toLocaleDateString('vi-VN')}
                     {' · '}
-                    ⏰ {new Date(slot.booked_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                    {' — '}
-                    {new Date(slot.end_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    {slot.start_time || new Date(slot.booked_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    {' - '}
+                    {slot.end_time || new Date(slot.end_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    {slot.service ? ` · ${slot.service}` : ''}
                   </div>
                 ))}
               </div>
@@ -186,16 +214,16 @@ function Booking() {
           {!isLoggedIn && (
             <div className={styles['booking-lock']}>
               <div className={styles['lock-icon']}>🔐</div>
-              <div className={styles['lock-title']}>Đăng nhập để đặt lịch</div>
+              <div className={styles['lock-title']}>Dang nhap de dat lich</div>
               <p className={styles['lock-desc']}>
-                Tạo tài khoản miễn phí để đặt lịch với các Tarot Reader và quản lý buổi hẹn của bạn.
+                Tao tai khoan mien phi de dat lich voi Tarot Reader va quan ly buoi hen cua ban.
               </p>
               <div className={styles['lock-btns']}>
                 <button className="btn-primary" style={{ fontSize: '.72rem', padding: '.8rem 1.6rem' }} onClick={() => openModal('register')}>
-                  Đăng ký miễn phí
+                  Dang ky mien phi
                 </button>
                 <button className="btn-ghost" style={{ fontSize: '.72rem', padding: '.8rem 1.4rem' }} onClick={() => openModal('login')}>
-                  Đã có tài khoản
+                  Da co tai khoan
                 </button>
               </div>
             </div>
@@ -203,12 +231,12 @@ function Booking() {
 
           <div className={styles['booking-form']}>
             <div className={styles.fr}>
-              <label className={styles.fl}>Dịch Vụ</label>
+              <label className={styles.fl}>Dich Vu</label>
               <select className={styles.fsel} name="service_id" value={form.service_id} onChange={handleChange}>
-                <option value="">-- Chọn dịch vụ --</option>
+                <option value="">-- Chon dich vu --</option>
                 {services.map(s => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.duration} phút) — {s.price.toLocaleString('vi-VN')}đ
+                    {s.name} ({s.duration} phut) - {s.price.toLocaleString('vi-VN')}d
                   </option>
                 ))}
               </select>
@@ -217,10 +245,10 @@ function Booking() {
             <div className={styles.fr}>
               <label className={styles.fl}>Reader</label>
               <select className={styles.fsel} name="reader_id" value={form.reader_id} onChange={handleChange}>
-                <option value="">-- Chọn Reader --</option>
+                <option value="">-- Chon Reader --</option>
                 {readers.map(r => (
                   <option key={r.id} value={r.id}>
-                    {r.avatar} {r.name} — {r.title}
+                    {r.avatar} {r.name} - {r.title}
                   </option>
                 ))}
               </select>
@@ -228,10 +256,10 @@ function Booking() {
 
             <div className={styles.fr}>
               <label className={styles.fl}>
-                Ngày Giờ Muốn Hẹn
-                {slotStatus === 'checking' && <span className={styles['slot-checking']}>  Đang kiểm tra...</span>}
-                {slotStatus === 'available' && <span className={styles['slot-available']}>  ✓ Còn trống</span>}
-                {slotStatus === 'busy' && <span className={styles['slot-busy']}>  ✗ Đã có người đặt</span>}
+                Ngay gio muon hen
+                {slotStatus === 'checking' && <span className={styles['slot-checking']}>  Dang kiem tra...</span>}
+                {slotStatus === 'available' && <span className={styles['slot-available']}>  Con trong</span>}
+                {slotStatus === 'busy' && <span className={styles['slot-busy']}>  Da co nguoi dat</span>}
               </label>
               <input
                 type="datetime-local"
@@ -244,11 +272,11 @@ function Booking() {
             </div>
 
             <div className={styles.fr}>
-              <label className={styles.fl}>Ghi Chú Vấn Đề (Tùy chọn)</label>
+              <label className={styles.fl}>Ghi chu van de (tuy chon)</label>
               <textarea
                 className={styles.fta}
                 name="note"
-                placeholder="Chia sẻ ngắn gọn điều bạn muốn hỏi..."
+                placeholder="Chia se ngan gon dieu ban muon hoi..."
                 value={form.note}
                 onChange={handleChange}
               />
@@ -259,7 +287,7 @@ function Booking() {
               onClick={submitBooking}
               disabled={loading || slotStatus === 'busy' || slotStatus === 'checking'}
             >
-              {loading ? 'Đang xử lý...' : 'Xác Nhận Đặt Lịch'}
+              {loading ? 'Dang xu ly...' : 'Xac Nhan Dat Lich'}
             </button>
           </div>
         </div>

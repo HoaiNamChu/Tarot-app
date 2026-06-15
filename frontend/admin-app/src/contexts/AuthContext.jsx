@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
         if (!token) return;
         api.auth.me()
             .then(user => {
-                if (user.role !== 'admin') throw new Error('Không có quyền');
+                if (!['admin', 'reader'].includes(user.role)) throw new Error('Không có quyền');
                 setAdmin(user);
             })
             .catch(() => localStorage.removeItem('admin_token'))
@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
 
     async function login(email, password) {
         const data = await api.auth.login(email, password);
-        if (data.user.role !== 'admin') {
+        if (!['admin', 'reader'].includes(data.user.role)) {
             throw new Error('Tài khoản không có quyền truy cập.');
         }
         localStorage.setItem('admin_token', data.token);

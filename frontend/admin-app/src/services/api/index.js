@@ -41,6 +41,7 @@ export const api = {
     },
     admin: {
         stats: () => request('/admin/stats'),
+        search: (q) => request(`/admin/search?q=${encodeURIComponent(q)}`),
         bookings: {
             getAll: (params = '') => request(`/admin/bookings?${params}`),
             create: (data) => request('/admin/bookings', { method: 'POST', body: JSON.stringify(data) }),
@@ -79,13 +80,29 @@ export const api = {
             get: () => request('/admin/settings'),
             update: (data) => request('/admin/settings', { method: 'PUT', body: JSON.stringify(data) }),
         },
+        notifications: {
+            getAll: () => request('/admin/notifications'),
+            markAllRead: () => request('/admin/notifications/read-all', { method: 'PATCH' }),
+            markRead: (id) => request(`/admin/notifications/${id}/read`, { method: 'PATCH' }),
+        },
         actionLogs: { getAll: () => request('/admin/action-logs') },
     },
     reader: {
         me: () => request('/reader/me'),
         stats: () => request('/reader/stats'),
+        services: () => request('/reader/services'),
         bookings: (params = '') => request(`/reader/bookings?${params}`),
+        createBooking: (data) => request('/reader/bookings', { method: 'POST', body: JSON.stringify(data) }),
+        updateBooking: (id, data) => request(`/reader/bookings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+        confirmBooking: (id) => request(`/reader/bookings/${id}/confirm`, { method: 'PATCH' }),
+        completeBooking: (id) => request(`/reader/bookings/${id}/complete`, { method: 'PATCH' }),
+        cancelBooking: (id) => request(`/reader/bookings/${id}/cancel`, { method: 'PATCH' }),
         updateProfile: (data) => request('/reader/profile', { method: 'PUT', body: JSON.stringify(data) }),
+        notifications: {
+            getAll: () => request('/reader/notifications'),
+            markAllRead: () => request('/reader/notifications/read-all', { method: 'PATCH' }),
+            markRead: (id) => request(`/reader/notifications/${id}/read`, { method: 'PATCH' }),
+        },
     },
     profile: {
         changePassword: (data) => request('/profile/password', { method: 'PUT', body: JSON.stringify(data) }),

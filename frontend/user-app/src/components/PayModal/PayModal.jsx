@@ -11,6 +11,16 @@ const DEFAULT_BANK_INFO = {
     accountNumber: import.meta.env.VITE_BANK_ACCOUNT_NUMBER || '1234 5678 9012',
     accountName: import.meta.env.VITE_BANK_ACCOUNT_NAME || 'LUNA ARCANA',
     prefix: import.meta.env.VITE_BANK_TRANSFER_PREFIX || 'LUNA',
+    paymentVnpayEnabled: true,
+    paymentVnpayAdminEnabled: true,
+    vnpayGatewayConfigured: true,
+    paymentBankEnabled: true,
+    paymentMomoEnabled: false,
+    paymentMomoAdminEnabled: false,
+    momoGatewayConfigured: false,
+    momoPhone: '',
+    momoAccountName: '',
+    momoPrefix: 'MOMO',
 };
 
 function PayModal({ booking, onClose }) {
@@ -29,13 +39,43 @@ function PayModal({ booking, onClose }) {
                 accountNumber: data.bank_account_number || DEFAULT_BANK_INFO.accountNumber,
                 accountName: data.bank_account_name || DEFAULT_BANK_INFO.accountName,
                 prefix: data.bank_transfer_prefix || DEFAULT_BANK_INFO.prefix,
+                paymentVnpayAdminEnabled: data.payment_vnpay_enabled !== false,
+                paymentVnpayEnabled: data.payment_vnpay_enabled !== false && data.payment_vnpay_gateway_configured !== false,
+                vnpayGatewayConfigured: data.payment_vnpay_gateway_configured !== false,
+                paymentBankEnabled: data.payment_bank_enabled !== false,
+                paymentMomoAdminEnabled: data.payment_momo_enabled === true,
+                paymentMomoEnabled: data.payment_momo_enabled === true && data.payment_momo_gateway_configured === true,
+                momoGatewayConfigured: data.payment_momo_gateway_configured === true,
+                momoPhone: data.momo_phone || DEFAULT_BANK_INFO.momoPhone,
+                momoAccountName: data.momo_account_name || DEFAULT_BANK_INFO.momoAccountName,
+                momoPrefix: data.momo_transfer_prefix || DEFAULT_BANK_INFO.momoPrefix,
             }))
             .catch(() => { });
     }, []);
 
+    useEffect(() => {
+        const available = [
+            bankInfo.paymentVnpayEnabled && 'vnpay',
+            bankInfo.paymentBankEnabled && 'bank',
+            bankInfo.paymentMomoEnabled && 'momo',
+        ].filter(Boolean);
+
+        if (!available.includes(method) && available[0]) {
+            setMethod(available[0]);
+        }
+    }, [bankInfo.paymentBankEnabled, bankInfo.paymentMomoEnabled, bankInfo.paymentVnpayEnabled, method]);
+
     if (!booking) return null;
 
-    const transferContent = `${bankInfo.prefix} ${booking.id}`;
+    const enabledMethods = [
+        bankInfo.paymentVnpayEnabled && { id: 'vnpay', icon: 'QR', label: 'VNPay QR' },
+    bankInfo.paymentBankEnabled && { id: 'bank', icon: 'BK', label: 'VietQR ngan hang' },
+        bankInfo.paymentMomoEnabled && { id: 'momo', icon: 'MM', label: 'MoMo Gateway' },
+    ].filter(Boolean);
+    const selectedMethodAvailable = enabledMethods.some(m => m.id === method);
+    const activeMethod = selectedMethodAvailable ? method : enabledMethods[0]?.id || '';
+
+    const transferContent = `${activeMethod === 'momo' ? bankInfo.momoPrefix : bankInfo.prefix} ${booking.id}`;
     const amount = Number(booking.amount || 0);
     const qrUrl = bankInfo.bin && bankInfo.accountNumber
         ? `https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bin)}-${encodeURIComponent(bankInfo.accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankInfo.accountName || '')}`
@@ -43,20 +83,25 @@ function PayModal({ booking, onClose }) {
 
     async function confirm() {
         try {
-            if (method === 'bank' && !proofCode.trim()) {
-                showToast('Vui long nhap ma giao dich hoac thoi gian chuyen khoan.');
+            if (!activeMethod) {
+                showToast('Hien chua co phuong thuc thanh toan kha dung.');
+                return;
+            }
+
+            if (activeMethod === 'bank' && !proofCode.trim()) {
+                showToast('Vui long nhap ma giao dich hoac thoi gian chuyen tien.');
                 return;
             }
 
             await payBooking(
                 booking.booking_id,
-                method,
-                method === 'bank'
+                activeMethod,
+                activeMethod === 'bank'
                     ? { proof_code: proofCode.trim(), proof_note: proofNote.trim() }
                     : {}
             );
 
-            if (method !== 'vnpay') {
+            if (activeMethod !== 'vnpay') {
                 onClose();
                 showToast('Da ghi nhan chuyen khoan. Admin se xac nhan trong 15 phut.');
             }
@@ -91,13 +136,10 @@ function PayModal({ booking, onClose }) {
                 <div className={styles['pay-methods']}>
                     <div className={styles['pay-methods-label']}>Chon phuong thuc thanh toan</div>
                     <div className={styles['pay-method-grid']}>
-                        {[
-                            { id: 'vnpay', icon: 'QR', label: 'VNPay QR' },
-                            { id: 'bank', icon: 'BK', label: 'VietQR ngan hang' },
-                        ].map(m => (
+                        {enabledMethods.map(m => (
                             <button
                                 key={m.id}
-                                className={`${styles['pay-method']} ${method === m.id ? styles.active : ''}`}
+                                className={`${styles['pay-method']} ${activeMethod === m.id ? styles.active : ''}`}
                                 onClick={() => setMethod(m.id)}
                             >
                                 <span className={styles['pay-method-icon']}>{m.icon}</span>
@@ -105,9 +147,18 @@ function PayModal({ booking, onClose }) {
                             </button>
                         ))}
                     </div>
+                    {enabledMethods.length === 0 && (
+                        <div className={styles['pay-note']}>Hien chua co phuong thuc thanh toan kha dung. Vui long lien he admin.</div>
+                    )}
+                    {bankInfo.paymentVnpayAdminEnabled && !bankInfo.vnpayGatewayConfigured && (
+                        <div className={styles['pay-note']}>VNPay dang bat trong admin nhung chua cau hinh gateway, tam thoi khong the thanh toan tu dong.</div>
+                    )}
+                    {bankInfo.paymentMomoAdminEnabled && !bankInfo.momoGatewayConfigured && (
+                        <div className={styles['pay-note']}>MoMo dang bat trong admin nhung chua cau hinh gateway, tam thoi khong the thanh toan tu dong.</div>
+                    )}
                 </div>
 
-                {method === 'bank' && (
+                {activeMethod === 'bank' && (
                     <div className={`${styles['pay-bank-info']} ${styles.show}`}>
                         {qrUrl && (
                             <div className={styles['pay-vietqr']}>
@@ -137,8 +188,18 @@ function PayModal({ booking, onClose }) {
                     </div>
                 )}
 
-                <button className={styles['pay-confirm-btn']} onClick={confirm}>
-                    {method === 'vnpay' ? 'Xac nhan thanh toan qua VNPay' : 'Toi da chuyen khoan'}
+                {activeMethod === 'momo' && (
+                    <div className={`${styles['pay-bank-info']} ${styles.show}`}>
+                        <div className={styles['pay-vietqr']}>
+                            <div>Ban se duoc chuyen sang cong thanh toan MoMo de xac nhan giao dich.</div>
+                        </div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Cong thanh toan</span><span className={styles['pay-bank-val']}>MoMo</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>So tien</span><span className={styles['pay-bank-val']}>{booking.price}</span></div>
+                    </div>
+                )}
+
+                <button className={styles['pay-confirm-btn']} onClick={confirm} disabled={!activeMethod}>
+                    {activeMethod === 'vnpay' ? 'Xac nhan thanh toan qua VNPay' : activeMethod === 'bank' ? 'Toi da chuyen khoan' : activeMethod === 'momo' ? 'Tiep tuc thanh toan qua MoMo' : 'Khong co phuong thuc thanh toan'}
                 </button>
                 <div className={styles['pay-note']}>
                     Sau khi thanh toan, chung toi se xac nhan trong vong 15 phut qua email cua ban.

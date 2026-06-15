@@ -10,6 +10,7 @@ class Payment extends Model
     const PENDING = 'pending';
     const SUCCESS = 'success';
     const FAILED  = 'failed';
+    const REFUNDED = 'refunded';
     const EXPIRED = 'expired';
 
 
@@ -25,6 +26,12 @@ class Payment extends Model
         'submitted_at',
         'verified_by',
         'verified_at',
+        'refund_amount',
+        'refund_reference',
+        'refund_reason',
+        'refund_note',
+        'refunded_by',
+        'refunded_at',
         'payload',
     ];
 
@@ -32,6 +39,7 @@ class Payment extends Model
         'payload' => 'array',
         'submitted_at' => 'datetime',
         'verified_at' => 'datetime',
+        'refunded_at' => 'datetime',
     ];
 
     public function booking()

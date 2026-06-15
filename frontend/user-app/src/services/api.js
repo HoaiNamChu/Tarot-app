@@ -1,4 +1,7 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const PUBLIC_CACHE_TTL_MS = 2 * 60 * 1000;
+const memoryCache = new Map();
+const pendingRequests = new Map();
 
 function getToken() {
   return localStorage.getItem('la_token');
@@ -35,6 +38,74 @@ async function request(path, options = {}) {
   return data;
 }
 
+function readSessionCache(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+
+    const cached = JSON.parse(raw);
+    if (!cached?.expiresAt || cached.expiresAt < Date.now()) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+
+    if (!Array.isArray(cached.data)) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+
+    return cached.data;
+  } catch {
+    sessionStorage.removeItem(key);
+    return null;
+  }
+}
+
+function writeSessionCache(key, data, ttlMs) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({
+      data,
+      expiresAt: Date.now() + ttlMs,
+    }));
+  } catch {
+    // Storage can be disabled or full; the network request already succeeded.
+  }
+}
+
+function cachedPublicRequest(path, ttlMs = PUBLIC_CACHE_TTL_MS) {
+  const key = `public:${path}`;
+  const memoryHit = memoryCache.get(key);
+
+  if (memoryHit?.expiresAt > Date.now()) {
+    return Promise.resolve(memoryHit.data);
+  }
+
+  const sessionHit = readSessionCache(key);
+  if (Array.isArray(sessionHit)) {
+    memoryCache.set(key, { data: sessionHit, expiresAt: Date.now() + ttlMs });
+    return Promise.resolve(sessionHit);
+  }
+
+  if (pendingRequests.has(key)) {
+    return pendingRequests.get(key);
+  }
+
+  const promise = request(path)
+    .then((data) => {
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid public API response.');
+      }
+
+      memoryCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+      writeSessionCache(key, data, ttlMs);
+      return data;
+    })
+    .finally(() => pendingRequests.delete(key));
+
+  pendingRequests.set(key, promise);
+  return promise;
+}
+
 export const api = {
   register: (name, email, password) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
@@ -66,12 +137,12 @@ export const api = {
     }),
   },
   readers: {
-    getAll: () => request('/readers'),
-    getBusySlots: (readerId, month) => request(`/readers/${readerId}/busy-slots?month=${month}`),
+    getAll: () => cachedPublicRequest('/readers'),
+    getBusySlots: (readerId, month) => request(`/readers/${readerId}/busy-slots${month ? `?month=${month}` : ''}`),
     checkSlot: (readerId, bookedAt, serviceId) => request(`/readers/${readerId}/check-slot?booked_at=${encodeURIComponent(bookedAt)}&service_id=${serviceId}`),
   },
   services: {
-    getAll: () => request('/services'),
+    getAll: () => cachedPublicRequest('/services'),
   },
   settings: {
     payment: () => request('/settings/payment'),

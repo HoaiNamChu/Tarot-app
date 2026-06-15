@@ -1,0 +1,22 @@
+server {
+    listen 80;
+    server_name app.example.com;
+    root /var/www/tarot/frontend/user-app/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+server {
+    listen 80;
+    server_name admin.example.com;
+    root /var/www/tarot/frontend/admin-app/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+

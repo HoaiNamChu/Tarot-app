@@ -7,26 +7,30 @@ use App\Models\Payment;
 
 class VNPayService
 {
+    public function __construct(private PaymentGatewayConfig $config)
+    {
+    }
+
+    public function isConfigured(): bool
+    {
+        return $this->config->missingVnpay() === [];
+    }
+
     public function createUrl(
         Booking $booking,
         Payment $payment
     ): string {
 
-        $vnp_TmnCode = config('vnpay.tmn_code');
-        $vnp_HashSecret = config('vnpay.hash_secret');
-        $vnp_Url = config('vnpay.url');
-        $vnp_Returnurl = config('vnpay.return_url');
-        $vnp_IpnUrl = config('vnpay.ipn_url');
+        $vnpay = $this->config->vnpay();
+        $vnp_TmnCode = $vnpay['tmn_code'];
+        $vnp_HashSecret = $vnpay['hash_secret'];
+        $vnp_Url = $vnpay['url'];
+        $vnp_Returnurl = $vnpay['return_url'];
+        $vnp_IpnUrl = $vnpay['ipn_url'];
 
-        foreach ([
-            'VNPAY_TMN_CODE' => $vnp_TmnCode,
-            'VNPAY_HASH_SECRET' => $vnp_HashSecret,
-            'VNPAY_URL' => $vnp_Url,
-            'VNPAY_RETURN_URL' => $vnp_Returnurl,
-        ] as $name => $value) {
-            if (blank($value)) {
-                throw new \RuntimeException("Missing {$name} configuration.");
-            }
+        $missing = $this->config->missingVnpay();
+        if ($missing !== []) {
+            throw new \RuntimeException('VNPay gateway is not configured: ' . implode(', ', $missing));
         }
 
         $inputData = [

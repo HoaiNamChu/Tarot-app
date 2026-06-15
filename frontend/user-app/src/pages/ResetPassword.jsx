@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
+import PasswordInput from '../components/PasswordInput/PasswordInput.jsx';
 
 export default function ResetPassword() {
     const [params] = useSearchParams();
@@ -43,8 +44,8 @@ export default function ResetPassword() {
                 <div style={{ marginTop: '1.25rem', display: 'grid', gap: '.85rem' }}>
                     <input className="input" type="email" placeholder="Email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
                     <input className="input" type="text" placeholder="Token" value={form.token} onChange={e => setForm(p => ({ ...p, token: e.target.value }))} />
-                    <input className="input" type="password" placeholder="Mật khẩu mới" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
-                    <input className="input" type="password" placeholder="Xác nhận mật khẩu mới" value={form.password_confirmation} onChange={e => setForm(p => ({ ...p, password_confirmation: e.target.value }))} />
+                    <PasswordInput className="input" placeholder="Mật khẩu mới" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
+                    <PasswordInput className="input" placeholder="Xác nhận mật khẩu mới" value={form.password_confirmation} onChange={e => setForm(p => ({ ...p, password_confirmation: e.target.value }))} />
                 </div>
                 <button className="btn-primary" type="submit" disabled={loading} style={{ width: '100%', marginTop: '1rem' }}>
                     {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}

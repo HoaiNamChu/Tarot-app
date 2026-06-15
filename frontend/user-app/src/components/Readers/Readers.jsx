@@ -10,7 +10,9 @@ function Readers() {
   const [readers, setReaders] = useState([]);
 
   useEffect(() => {
-    api.readers.getAll().then(setReaders).catch(() => { });
+    api.readers.getAll()
+      .then(data => setReaders(Array.isArray(data) ? data : []))
+      .catch(() => setReaders([]));
   }, []);
 
   function selectReader(reader) {
@@ -24,7 +26,7 @@ function Readers() {
       <h2 className="section-title">Gặp Gỡ <em>Readers</em></h2>
 
       <div className={styles['readers-grid']}>
-        {readers.map(reader => (
+        {(Array.isArray(readers) ? readers : []).map(reader => (
           <div key={reader.id} className={styles.rc} onClick={() => selectReader(reader)}>
             <div className={styles['rc-avatar']}>{reader.avatar}</div>
             <h3 className={styles['rc-name']}>{reader.name}</h3>

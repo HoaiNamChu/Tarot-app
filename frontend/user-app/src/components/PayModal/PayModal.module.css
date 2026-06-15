@@ -308,6 +308,15 @@
     background: var(--gold-2);
 }
 
+.pay-confirm-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.pay-confirm-btn:disabled:hover {
+    background: var(--gold);
+}
+
 .pay-note {
     margin: 0 1.75rem 1.75rem;
     font-size: .68rem;

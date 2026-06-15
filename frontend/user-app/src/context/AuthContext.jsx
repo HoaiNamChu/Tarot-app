@@ -115,7 +115,7 @@ export function AuthProvider({ children }) {
     );
 
     if (
-      method === 'vnpay' &&
+      ['vnpay', 'momo'].includes(method) &&
       res.payment_url
     ) {
       window.location.href =

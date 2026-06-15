@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import { useToast } from '../../contexts/ToastContext.jsx';
 import { ConfirmModal, InfoRow, Modal } from '../../components/Modal/Modal.jsx';
+import PasswordInput from '../../components/PasswordInput/PasswordInput.jsx';
 
 const emptyForm = {
     name: '',
@@ -43,7 +44,7 @@ function UserForm({ form, setForm, onSubmit, submitLabel, isEdit = false }) {
                 </div>
                 <div>
                     <label className="label">{isEdit ? 'Mat khau moi' : 'Mat khau'}</label>
-                    <input type="password" className="input" value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={isEdit ? 'De trong neu khong doi' : 'Tu tao neu de trong'} />
+                    <PasswordInput value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={isEdit ? 'De trong neu khong doi' : 'Tu tao neu de trong'} />
                 </div>
             </div>
             <div className="form-row">

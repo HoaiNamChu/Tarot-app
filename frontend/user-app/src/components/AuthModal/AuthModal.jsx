@@ -3,6 +3,7 @@ import styles from './AuthModal.module.css';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api.js';
+import PasswordInput from '../PasswordInput/PasswordInput.jsx';
 
 function AuthModal({ isOpen, activeTab, onClose }) {
   const { handleLogin, handleRegister } = useAuth();
@@ -128,7 +129,7 @@ function AuthModal({ isOpen, activeTab, onClose }) {
               </div>
               <div className={styles.mfg}>
                 <label className={styles.mlbl}>Mật Khẩu</label>
-                <input className={styles.minput} type="password" placeholder="••••••••"
+                <PasswordInput className={styles.minput} placeholder="••••••••"
                   value={loginForm.pass} onChange={e => setLoginForm(p => ({ ...p, pass: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && submitLogin()} />
               </div>
@@ -161,7 +162,7 @@ function AuthModal({ isOpen, activeTab, onClose }) {
               </div>
               <div className={styles.mfg}>
                 <label className={styles.mlbl}>Mật Khẩu</label>
-                <input className={styles.minput} type="password" placeholder="Ít nhất 6 ký tự"
+                <PasswordInput className={styles.minput} placeholder="Ít nhất 6 ký tự"
                   value={regForm.pass} onChange={e => setRegForm(p => ({ ...p, pass: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && submitRegister()} />
               </div>

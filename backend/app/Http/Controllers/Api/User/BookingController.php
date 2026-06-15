@@ -8,7 +8,10 @@ use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BookingCancelled;
+use App\Models\AppSetting;
 use App\Services\Booking\CreateBookingService;
+use App\Services\NotificationService;
+use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
 {
@@ -54,7 +57,20 @@ class BookingController extends Controller
             'cancelled_at' => now(),
         ]);
 
-        Mail::to($booking->user->email)->queue(new BookingCancelled($booking));
+        try {
+            Mail::to($booking->user->email)->queue(new BookingCancelled($booking));
+        } catch (\Throwable $e) {
+            Log::warning('Booking cancellation mail failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        app(NotificationService::class)->notifyAdmins('booking.cancelled_by_customer', 'Khach huy lich', ($booking->user?->name ?? 'Khach hang') . ' da huy lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT), '/bookings', [
+            'booking_id' => $booking->id,
+            'reader' => $booking->reader?->name,
+        ]);
+        app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.cancelled_by_customer', 'Khach da huy lich', ($booking->user?->name ?? 'Khach hang') . ' da huy lich ' . $booking->booked_at?->format('d/m/Y H:i'));
 
         return response()->json(['message' => 'Đã huỷ lịch thành công.']);
     }
@@ -62,12 +78,24 @@ class BookingController extends Controller
     public function pay(Request $request, $id, \App\Services\Payment\PaymentService $service)
     {
         $data = $request->validate([
-            'payment_method' => 'required|in:vnpay,bank',
+            'payment_method' => 'required|in:vnpay,bank,momo',
             'proof_code' => 'nullable|string|max:100',
             'proof_note' => 'nullable|string|max:1000',
         ]);
 
         try {
+            if ($data['payment_method'] === 'vnpay' && !AppSetting::getBool('payment_vnpay_enabled', true)) {
+                return response()->json(['message' => 'Phuong thuc thanh toan VNPay dang tam tat.'], 422);
+            }
+
+            if ($data['payment_method'] === 'bank' && !AppSetting::getBool('payment_bank_enabled', true)) {
+                return response()->json(['message' => 'Phuong thuc chuyen khoan dang tam tat.'], 422);
+            }
+
+            if ($data['payment_method'] === 'momo' && !AppSetting::getBool('payment_momo_enabled', false)) {
+                return response()->json(['message' => 'Phuong thuc thanh toan MoMo dang tam tat.'], 422);
+            }
+
             $booking = Booking::with('service')
                 ->where('user_id', $request->user()->id)
                 ->findOrFail($id);
@@ -101,8 +129,18 @@ class BookingController extends Controller
                 return response()->json(['payment_url' => $url]);
             }
 
+            if ($data['payment_method'] === 'momo') {
+                $momo = app(\App\Services\Payment\MoMoService::class);
+                $url = $momo->createUrl($booking, $payment);
+                return response()->json(['payment_url' => $url]);
+            }
+
+            if ($data['payment_method'] === 'bank' && empty(trim($data['proof_code'] ?? ''))) {
+                return response()->json(['message' => 'Vui long nhap ma giao dich hoac thoi gian chuyen tien.'], 422);
+            }
+
             $booking->update([
-                'payment_method' => 'bank',
+                'payment_method' => $data['payment_method'],
                 'payment_status' => 'pending_verification',
             ]);
 
@@ -112,13 +150,52 @@ class BookingController extends Controller
                 'submitted_at' => now(),
             ]);
 
+            $booking->loadMissing(['user', 'reader', 'service']);
+            app(NotificationService::class)->notifyAdmins('payment.pending_verification', 'Thanh toan can xac minh', ($booking->user?->name ?? 'Khach hang') . ' da gui thong tin chuyen khoan cho BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT), '/payments', [
+                'booking_id' => $booking->id,
+                'payment_method' => $data['payment_method'],
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Da ghi nhan chuyen khoan. Admin se xac nhan thanh toan.',
+                'message' => 'Da ghi nhan thanh toan. Admin se xac nhan thanh toan.',
                 'payment_status' => 'pending_verification',
-                'payment_method' => 'bank',
+                'payment_method' => $data['payment_method'],
             ]);
-        } catch (\Throwable) {
+        } catch (\RuntimeException $e) {
+            if (str_starts_with($e->getMessage(), 'VNPay gateway is not configured:')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cong thanh toan VNPay chua duoc cau hinh day du. Vui long cap nhat cau hinh VNPay trong admin.',
+                    'missing_config' => array_map('trim', explode(',', substr($e->getMessage(), strlen('VNPay gateway is not configured:')))),
+                ], 422);
+            }
+
+            if (str_starts_with($e->getMessage(), 'MoMo gateway is not configured:')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cong thanh toan MoMo chua duoc cau hinh day du. Vui long cap nhat cau hinh MoMo trong admin.',
+                    'missing_config' => array_map('trim', explode(',', substr($e->getMessage(), strlen('MoMo gateway is not configured:')))),
+                ], 422);
+            }
+
+            Log::warning('Payment request failed', [
+                'booking_id' => $id,
+                'payment_method' => $data['payment_method'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Khong the xu ly thanh toan luc nay. Vui long thu lai sau.',
+            ], 409);
+        } catch (\Throwable $e) {
+            Log::warning('Payment request failed', [
+                'booking_id' => $id,
+                'payment_method' => $data['payment_method'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Khong the xu ly thanh toan luc nay. Vui long thu lai sau.',
@@ -178,6 +255,15 @@ class BookingController extends Controller
         ]);
 
         $booking->update(['reviewed' => true]);
+        $booking->loadMissing(['user', 'reader', 'service']);
+        app(NotificationService::class)->notifyAdmins('review.created', 'Danh gia moi can duyet', ($request->user()->name ?? 'Khach hang') . ' da gui danh gia ' . $review->stars . ' sao', '/reviews', [
+            'booking_id' => $booking->id,
+            'review_id' => $review->id,
+            'reader' => $booking->reader?->name,
+        ]);
+        app(NotificationService::class)->notifyReaderForBooking($booking, 'review.created', 'Ban co danh gia moi', ($request->user()->name ?? 'Khach hang') . ' da danh gia ' . $review->stars . ' sao', [
+            'review_id' => $review->id,
+        ]);
 
         return response()->json([
             'id'         => $review->id,

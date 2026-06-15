@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Api\Payment;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Services\Payment\PaymentGatewayConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class VNPayController extends Controller
 {
+    public function __construct(private PaymentGatewayConfig $gatewayConfig)
+    {
+    }
+
     public function handleReturn(Request $request)
     {
         $payment = Payment::find($request->vnp_TxnRef);
@@ -25,7 +30,10 @@ class VNPayController extends Controller
 
         try {
             $this->processPayment($request);
-            $query['status'] = $request->vnp_ResponseCode === '00' ? 'success' : 'failed';
+            $payment?->refresh();
+            $query['status'] = $request->vnp_ResponseCode === '00' && $payment?->status === Payment::SUCCESS
+                ? 'success'
+                : 'failed';
         } catch (\Throwable) {
             $query['status'] = 'failed';
         }
@@ -48,9 +56,13 @@ class VNPayController extends Controller
 
     private function verifySignature(Request $request): bool
     {
-        $vnp_HashSecret = config('vnpay.hash_secret');
+        $vnp_HashSecret = $this->gatewayConfig->vnpay()['hash_secret'];
         $inputData      = $request->except(['vnp_SecureHash', 'vnp_SecureHashType']);
         $vnp_SecureHash = $request->input('vnp_SecureHash', '');
+
+        if (blank($vnp_HashSecret) || blank($vnp_SecureHash)) {
+            return false;
+        }
 
         ksort($inputData);
 
@@ -67,6 +79,7 @@ class VNPayController extends Controller
         return DB::transaction(function () use ($request) {
 
             $payment = Payment::lockForUpdate()->findOrFail($request->vnp_TxnRef);
+            $payment->load('booking');
 
             // FIX: throw exception thay vì redirect() trong transaction
             // redirect() không thoát ra khỏi transaction, code vẫn chạy tiếp
@@ -75,13 +88,21 @@ class VNPayController extends Controller
             }
 
             // Idempotent: đã xử lý rồi thì bỏ qua
-            if ($payment->status === 'success') {
+            if ($payment->status === Payment::SUCCESS) {
                 return response()->json(['RspCode' => '00', 'Message' => 'Already confirmed']);
+            }
+
+            if ($payment->status === Payment::REFUNDED || $payment->booking->payment_status === 'refunded') {
+                return response()->json(['RspCode' => '00', 'Message' => 'Already refunded']);
+            }
+
+            if ($payment->status === Payment::EXPIRED || $payment->booking->status === 'cancelled') {
+                return response()->json(['RspCode' => '00', 'Message' => 'Booking is closed']);
             }
 
             if ($request->vnp_ResponseCode === '00') {
                 $payment->update([
-                    'status'           => 'success',
+                    'status'           => Payment::SUCCESS,
                     'transaction_code' => $request->vnp_TransactionNo,
                     'payload'          => $request->all(),
                 ]);

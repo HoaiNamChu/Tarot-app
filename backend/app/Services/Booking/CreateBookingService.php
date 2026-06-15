@@ -9,8 +9,10 @@ use App\Models\User;
 use App\Mail\BookingCreated;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Services\NotificationService;
 
 class CreateBookingService
 {
@@ -50,11 +52,17 @@ class CreateBookingService
                     'reader_id',
                     $reader->id
                 )
-                ->whereIn('status', [
-                    'pending',
-                    // 'pending_payment',
-                    'confirmed'
-                ])
+                ->where(function ($query) {
+                    $query
+                        ->whereNotIn('status', ['cancelled', 'completed'])
+                        ->where(function ($activeBooking) {
+                            $activeBooking
+                                ->where('status', '!=', 'pending')
+                                ->orWhereIn('payment_status', ['pending_verification', 'paid'])
+                                ->orWhereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                        });
+                })
                 ->whereDate(
                     'booked_at',
                     $newStart->toDateString()
@@ -132,23 +140,33 @@ class CreateBookingService
 
             if ($notify) {
                 DB::afterCommit(function () use ($booking) {
+                    app(NotificationService::class)->notifyBookingCreated($booking, true);
 
-                    Mail::to(
-                        $booking->user->email
-                    )->queue(
-                        new BookingCreated(
-                            $booking
-                        )
-                    );
+                    try {
+                        Mail::to(
+                            $booking->user->email
+                        )->queue(
+                            new BookingCreated(
+                                $booking
+                            )
+                        );
 
-                    Mail::to(
-                        config('tarot.admin_email')
-                    )->queue(
-                        new BookingCreated(
-                            $booking
-                        )
-                    );
+                        Mail::to(
+                            config('tarot.admin_email')
+                        )->queue(
+                            new BookingCreated(
+                                $booking
+                            )
+                        );
+                    } catch (\Throwable $e) {
+                        Log::warning('Booking notification mail failed', [
+                            'booking_id' => $booking->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 });
+            } else {
+                DB::afterCommit(fn() => app(NotificationService::class)->notifyBookingCreated($booking, false));
             }
 
 

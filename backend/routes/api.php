@@ -2,6 +2,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Payment\VNPayController;
+use App\Http\Controllers\Api\Payment\MoMoController;
 
 // Route::get(
 //     '/payment/vnpay/return',
@@ -17,6 +18,8 @@ Route::get(
     '/payment/vnpay/ipn',
     [VNPayController::class, 'ipn']
 );
+Route::get('/payment/momo/return', [MoMoController::class, 'handleReturn']);
+Route::post('/payment/momo/ipn', [MoMoController::class, 'ipn']);
 require __DIR__ . '/api/auth.php';
 require __DIR__ . '/api/public.php';
 require __DIR__ . '/api/user.php';

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import PasswordInput from '../../components/PasswordInput/PasswordInput.jsx';
 import styles from './Login.module.css';
 
 function Login() {
@@ -30,9 +31,9 @@ function Login() {
     return (
         <div className={styles.page}>
             <div className={styles.box}>
-                <div className={styles.logo}>🌙 Luna Arcana <span className={styles.pill}>Admin</span></div>
+                <div className={styles.logo}>Luna Arcana <span className={styles.pill}>Portal</span></div>
                 <div className={styles.title}>Đăng nhập</div>
-                <div className={styles.sub}>Chỉ dành cho quản trị viên</div>
+                <div className={styles.sub}>Danh cho quan tri vien va Reader</div>
 
                 {err && <div className={styles.err}>{err}</div>}
 
@@ -50,9 +51,8 @@ function Login() {
 
                 <div className={styles.group}>
                     <label className={styles.label}>Mật khẩu</label>
-                    <input
+                    <PasswordInput
                         className={styles.input}
-                        type="password"
                         placeholder="••••••••"
                         value={form.password}
                         onChange={e => setForm(p => ({ ...p, password: e.target.value }))}

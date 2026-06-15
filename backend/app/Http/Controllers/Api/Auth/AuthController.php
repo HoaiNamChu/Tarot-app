@@ -11,12 +11,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        if ($request->filled('email')) {
+            $request->merge(['email' => Str::lower($request->email)]);
+        }
+
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users',
@@ -39,13 +42,17 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'  => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
+            'user'  => $this->authUser($user),
             'token' => $token,
         ], 201);
     }
 
     public function login(Request $request)
     {
+        if ($request->filled('email')) {
+            $request->merge(['email' => Str::lower($request->email)]);
+        }
+
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required',
@@ -65,7 +72,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'  => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'role' => $user->role],
+            'user'  => $this->authUser($user),
             'token' => $token,
         ]);
     }
@@ -78,11 +85,15 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($this->authUser($request->user()));
     }
 
     public function forgotPassword(Request $request)
     {
+        if ($request->filled('email')) {
+            $request->merge(['email' => Str::lower($request->email)]);
+        }
+
         $request->validate([
             'email' => 'required|email',
         ]);
@@ -114,6 +125,10 @@ class AuthController extends Controller
 
     public function resetPassword(Request $request)
     {
+        if ($request->filled('email')) {
+            $request->merge(['email' => Str::lower($request->email)]);
+        }
+
         $request->validate([
             'email' => 'required|email|exists:users,email',
             'token' => 'required|string',
@@ -139,5 +154,16 @@ class AuthController extends Controller
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
         return response()->json(['message' => 'Đã đặt lại mật khẩu thành công.']);
+    }
+
+    private function authUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'role' => $user->role ?? 'user',
+        ];
     }
 }

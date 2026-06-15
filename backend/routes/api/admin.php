@@ -2,11 +2,16 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\NotificationController;
 
 Route::middleware(['auth:sanctum', \App\Http\Middleware\AdminMiddleware::class, 'throttle:80,1'])
     ->prefix('admin')
     ->group(function () {
         Route::get('/stats', [AdminController::class, 'stats']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+        Route::get('/search', [AdminController::class, 'search']);
         Route::get('/bookings', [AdminController::class, 'bookings']);
         Route::post('/bookings', [AdminController::class, 'createBooking']);
         Route::patch('/bookings/{id}/confirm', [AdminController::class, 'confirmBooking']);
@@ -14,7 +19,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\AdminMiddleware::class, 
         Route::patch('/bookings/{id}/complete', [AdminController::class, 'completeBooking']);
         Route::patch('/bookings/{id}/status', [AdminController::class, 'updateBookingStatus']);
         Route::patch('/bookings/{id}/zoom', [AdminController::class, 'setZoom']);
-        Route::patch('/bookings/{id}/payment', [AdminController::class, 'updatePayment']);
+        Route::patch('/bookings/{id}/payment', [AdminController::class, 'updatePaymentWithRefundAudit']);
         Route::get('/readers', [AdminController::class, 'readers']);
         Route::post('/readers', [AdminController::class, 'createReader']);
         Route::put('/readers/{id}', [AdminController::class, 'updateReader']);

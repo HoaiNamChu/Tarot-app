@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import PayModal from '../components/PayModal/PayModal.jsx';
+import PasswordInput from '../components/PasswordInput/PasswordInput.jsx';
 import ReviewModal from '../components/ReviewModal/ReviewModal.jsx';
 import styles from './Dashboard.module.css';
 import { api } from '../services/api.js';
@@ -400,9 +401,8 @@ function Dashboard() {
                                         <label style={{ display: 'block', fontSize: '.62rem', letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '.45rem' }}>
                                             {field.label}
                                         </label>
-                                        <input
+                                        <PasswordInput
                                             style={{ width: '100%', background: 'var(--ink-3)', border: '1px solid rgba(200,169,110,.15)', color: 'var(--cream)', fontFamily: "'DM Sans', sans-serif", fontSize: '.88rem', padding: '.75rem 1rem', borderRadius: '2px', outline: 'none' }}
-                                            type="password"
                                             value={passForm[field.key]}
                                             onChange={e => setPassForm(p => ({ ...p, [field.key]: e.target.value }))}
                                             onFocus={e => e.target.style.borderColor = 'var(--gold)'}

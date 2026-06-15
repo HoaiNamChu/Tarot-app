@@ -83,7 +83,14 @@ export default function Bookings() {
     const [modal, setModal] = useState(null);
     const [statusAction, setStatusAction] = useState(null);
     const [zoomLink, setZoomLink] = useState('');
-    const [paymentForm, setPaymentForm] = useState({ payment_status: 'paid', payment_method: 'bank' });
+    const [paymentForm, setPaymentForm] = useState({
+        payment_status: 'paid',
+        payment_method: 'bank',
+        refund_amount: '',
+        refund_reference: '',
+        refund_reason: '',
+        refund_note: '',
+    });
 
     useEffect(() => {
         api.admin.bookings.getAll()
@@ -107,6 +114,10 @@ export default function Bookings() {
         setPaymentForm({
             payment_status: booking?.payment_status || 'paid',
             payment_method: booking?.payment_method || 'bank',
+            refund_amount: booking?.refund_amount || booking?.amount || '',
+            refund_reference: booking?.refund_reference || '',
+            refund_reason: booking?.refund_reason || '',
+            refund_note: booking?.refund_note || '',
         });
     }
 
@@ -114,6 +125,14 @@ export default function Bookings() {
         setModal(null);
         setSelected(null);
         setStatusAction(null);
+        setPaymentForm({
+            payment_status: 'paid',
+            payment_method: 'bank',
+            refund_amount: '',
+            refund_reference: '',
+            refund_reason: '',
+            refund_note: '',
+        });
     }
 
     function patchBooking(id, patch) {
@@ -253,6 +272,14 @@ export default function Bookings() {
                             <InfoRow label="Thoi gian" value={selected.booked_at} />
                             <InfoRow label="Trang thai"><Badge status={selected.status} /></InfoRow>
                             <InfoRow label="Thanh toan"><Badge status={selected.payment_status || 'unpaid'} map={PAYMENT_ST} /></InfoRow>
+                            {selected.payment_status === 'refunded' && (
+                                <>
+                                    <InfoRow label="So tien hoan" value={selected.refund_amount ? Number(selected.refund_amount).toLocaleString('vi-VN') + 'd' : '-'} />
+                                    <InfoRow label="Ma hoan tien" value={selected.refund_reference} />
+                                    <InfoRow label="Ly do hoan" value={selected.refund_reason} />
+                                    <InfoRow label="Thoi gian hoan" value={selected.refunded_at} />
+                                </>
+                            )}
                         </div>
                         <div className="detail-panel" style={{ gridColumn: '1 / -1' }}>
                             <div className="detail-title">Ghi chu va link</div>
@@ -298,6 +325,28 @@ export default function Bookings() {
                             </select>
                         </div>
                     </div>
+                    {paymentForm.payment_status === 'refunded' && (
+                        <>
+                            <div className="form-row">
+                                <div>
+                                    <label className="label">So tien hoan</label>
+                                    <input className="input" type="number" min="1" max={selected?.amount || undefined} value={paymentForm.refund_amount} onChange={(e) => setPaymentForm({ ...paymentForm, refund_amount: e.target.value })} required />
+                                </div>
+                                <div>
+                                    <label className="label">Ma/chung tu hoan</label>
+                                    <input className="input" value={paymentForm.refund_reference} onChange={(e) => setPaymentForm({ ...paymentForm, refund_reference: e.target.value })} placeholder="VD: FT..." />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Ly do hoan tien</label>
+                                <textarea className="input" rows="3" value={paymentForm.refund_reason} onChange={(e) => setPaymentForm({ ...paymentForm, refund_reason: e.target.value })} required />
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Ghi chu noi bo</label>
+                                <textarea className="input" rows="2" value={paymentForm.refund_note} onChange={(e) => setPaymentForm({ ...paymentForm, refund_note: e.target.value })} />
+                            </div>
+                        </>
+                    )}
                     <div className="modal-footer" style={{ margin: '1.25rem -1.35rem -1.25rem' }}>
                         <button type="button" className="btn-secondary" onClick={closeModal}>Huy</button>
                         <button type="submit" className="btn-primary">Cap nhat</button>
