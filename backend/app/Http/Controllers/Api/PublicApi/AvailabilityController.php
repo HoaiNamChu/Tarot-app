@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\PublicApi;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Reader;
 use App\Models\Service;
+use App\Services\Booking\ReaderAvailabilityService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -59,8 +61,16 @@ class AvailabilityController extends Controller
         ]);
 
         $service = Service::findOrFail($request->service_id);
+        $reader = Reader::findOrFail($readerId);
         $newStart = Carbon::parse($request->booked_at, config('app.timezone'));
         $newEnd = $newStart->copy()->addMinutes($service->duration);
+
+        if (!app(ReaderAvailabilityService::class)->isSlotAllowed($reader, $newStart, (int) $service->duration)) {
+            return response()->json([
+                'available' => false,
+                'message' => 'Reader khong mo lich trong khung gio nay. Vui long chon thoi gian khac.',
+            ]);
+        }
 
         $bookings = Booking::with('service')
             ->where('reader_id', $readerId)

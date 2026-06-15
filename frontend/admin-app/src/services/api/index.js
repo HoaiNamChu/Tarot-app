@@ -91,6 +91,8 @@ export const api = {
         me: () => request('/reader/me'),
         stats: () => request('/reader/stats'),
         services: () => request('/reader/services'),
+        availability: () => request('/reader/availability'),
+        updateAvailability: (rules) => request('/reader/availability', { method: 'PUT', body: JSON.stringify({ rules }) }),
         bookings: (params = '') => request(`/reader/bookings?${params}`),
         createBooking: (data) => request('/reader/bookings', { method: 'POST', body: JSON.stringify(data) }),
         updateBooking: (id, data) => request(`/reader/bookings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

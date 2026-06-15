@@ -10,3 +10,5 @@ Artisan::command('inspire', function () {
 Schedule::command(
     'bookings:expire'
 )->everyMinute();
+
+Schedule::command('bookings:send-reminders')->everyFifteenMinutes();

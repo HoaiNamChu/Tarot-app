@@ -8,6 +8,7 @@ use App\Models\Reader;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\CreateBookingService;
+use App\Services\Booking\ReaderAvailabilityService;
 use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -237,6 +238,45 @@ class ReaderDashboardController extends Controller
         return response()->json(['message' => 'Da cap nhat thong tin.']);
     }
 
+    public function availability(Request $request, ReaderAvailabilityService $availability)
+    {
+        $reader = $this->currentReader($request);
+        if (!$reader) {
+            return response()->json(['message' => 'Khong tim thay thong tin Reader.'], 404);
+        }
+
+        return response()->json($availability->formatRules($reader));
+    }
+
+    public function updateAvailability(Request $request, ReaderAvailabilityService $availability)
+    {
+        $reader = $this->currentReader($request);
+        if (!$reader) {
+            return response()->json(['message' => 'Khong tim thay thong tin Reader.'], 404);
+        }
+
+        $data = $request->validate([
+            'rules' => 'required|array|size:7',
+            'rules.*.weekday' => 'required|integer|min:0|max:6',
+            'rules.*.is_active' => 'required|boolean',
+            'rules.*.start_time' => 'required|date_format:H:i',
+            'rules.*.end_time' => 'required|date_format:H:i',
+        ]);
+
+        $weekdays = collect($data['rules'])->pluck('weekday');
+        if ($weekdays->unique()->count() !== 7) {
+            return response()->json(['message' => 'Can cau hinh day du 7 ngay trong tuan.'], 422);
+        }
+
+        foreach ($data['rules'] as $rule) {
+            if ($rule['is_active'] && $rule['end_time'] <= $rule['start_time']) {
+                return response()->json(['message' => 'Gio ket thuc phai sau gio bat dau.'], 422);
+            }
+        }
+
+        return response()->json($availability->syncRules($reader, $data['rules']));
+    }
+
     private function changeOwnBookingStatus(Request $request, $id, string $nextStatus, array $allowedCurrentStatuses, string $message)
     {
         $reader = $this->currentReader($request);
@@ -266,6 +306,9 @@ class ReaderDashboardController extends Controller
 
     private function ensureSlotIsFree(int $readerId, int $ignoreBookingId, Service $service, Carbon $start): void
     {
+        $reader = Reader::findOrFail($readerId);
+        app(ReaderAvailabilityService::class)->assertSlotAllowed($reader, $start, (int) $service->duration);
+
         $end = $start->copy()->addMinutes($service->duration);
         $existing = Booking::with('service')
             ->where('reader_id', $readerId)

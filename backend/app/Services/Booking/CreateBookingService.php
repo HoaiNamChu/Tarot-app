@@ -47,6 +47,12 @@ class CreateBookingService
                     $service->duration
                 );
 
+            app(ReaderAvailabilityService::class)->assertSlotAllowed(
+                $reader,
+                $newStart,
+                (int) $service->duration
+            );
+
             $existingBookings = Booking::with('service')
                 ->where(
                     'reader_id',

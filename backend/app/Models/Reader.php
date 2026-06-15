@@ -17,4 +17,9 @@ class Reader extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function availabilityRules()
+    {
+        return $this->hasMany(ReaderAvailabilityRule::class);
+    }
 }

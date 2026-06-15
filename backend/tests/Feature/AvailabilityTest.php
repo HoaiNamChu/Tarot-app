@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use App\Models\Reader;
+use App\Models\ReaderAvailabilityRule;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\CreateBookingService;
@@ -171,6 +172,58 @@ class AvailabilityTest extends TestCase
             ->assertJsonCount(1)
             ->assertJsonPath('0.start_time', '10:10')
             ->assertJsonPath('0.service', 'QA Service');
+    }
+
+    public function test_reader_availability_rules_block_closed_hours(): void
+    {
+        [$reader, $service, $user] = $this->seedReaderServiceAndUser();
+        $bookedAt = now()->addDays(2)->setTime(10, 0);
+
+        ReaderAvailabilityRule::create([
+            'reader_id' => $reader->id,
+            'weekday' => $bookedAt->dayOfWeek,
+            'start_time' => '13:00',
+            'end_time' => '18:00',
+            'is_active' => true,
+        ]);
+
+        $this->getJson("/api/readers/{$reader->id}/check-slot?booked_at=" . urlencode($bookedAt->toDateTimeString()) . "&service_id={$service->id}")
+            ->assertOk()
+            ->assertJsonPath('available', false);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        app(CreateBookingService::class)->execute($user, [
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => $bookedAt->toDateTimeString(),
+        ], false);
+    }
+
+    public function test_reader_availability_rules_allow_open_hours(): void
+    {
+        [$reader, $service, $user] = $this->seedReaderServiceAndUser();
+        $bookedAt = now()->addDays(2)->setTime(14, 0);
+
+        ReaderAvailabilityRule::create([
+            'reader_id' => $reader->id,
+            'weekday' => $bookedAt->dayOfWeek,
+            'start_time' => '13:00',
+            'end_time' => '18:00',
+            'is_active' => true,
+        ]);
+
+        $this->getJson("/api/readers/{$reader->id}/check-slot?booked_at=" . urlencode($bookedAt->toDateTimeString()) . "&service_id={$service->id}")
+            ->assertOk()
+            ->assertJsonPath('available', true);
+
+        $booking = app(CreateBookingService::class)->execute($user, [
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => $bookedAt->toDateTimeString(),
+        ], false);
+
+        $this->assertSame($reader->id, $booking->reader_id);
     }
 
     private function seedReaderServiceAndUser(): array

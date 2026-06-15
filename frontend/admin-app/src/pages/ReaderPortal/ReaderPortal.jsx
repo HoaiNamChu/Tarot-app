@@ -19,6 +19,8 @@ const STATUS_LABELS = {
     cancelled: 'Da huy',
 };
 
+const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
 function StatusBadge({ status }) {
     const cls = status === 'confirmed' ? 'b-green'
         : status === 'completed' ? 'b-gold'
@@ -49,19 +51,22 @@ export default function ReaderPortal() {
     const [profile, setProfile] = useState({ bio: '', phone: '' });
     const [bookingForm, setBookingForm] = useState(EMPTY_BOOKING_FORM);
     const [editing, setEditing] = useState(null);
+    const [availability, setAvailability] = useState([]);
 
     const loadAll = useCallback(async () => {
         try {
-            const [meData, statsData, bookingsData, servicesData] = await Promise.all([
+            const [meData, statsData, bookingsData, servicesData, availabilityData] = await Promise.all([
                 api.reader.me(),
                 api.reader.stats(),
                 api.reader.bookings(),
                 api.reader.services(),
+                api.reader.availability(),
             ]);
             setMe(meData);
             setStats(statsData);
             setBookings(bookingsData || []);
             setServices(servicesData || []);
+            setAvailability(availabilityData || []);
             setProfile({ bio: meData?.bio || '', phone: meData?.phone || '' });
         } catch (err) {
             showToast(err.message || 'Loi tai du lieu reader', 'error');
@@ -178,6 +183,26 @@ export default function ReaderPortal() {
         }
     }
 
+    function updateAvailability(index, field, value) {
+        setAvailability(prev => prev.map((item, itemIndex) => (
+            itemIndex === index ? { ...item, [field]: value } : item
+        )));
+    }
+
+    async function saveAvailability(event) {
+        event.preventDefault();
+        setSaving(true);
+        try {
+            const saved = await api.reader.updateAvailability(availability);
+            setAvailability(saved || []);
+            showToast('Da cap nhat gio lam viec');
+        } catch (err) {
+            showToast(err.message || 'Loi cap nhat gio lam viec', 'error');
+        } finally {
+            setSaving(false);
+        }
+    }
+
     if (loading) return <div style={{ padding: '2rem' }}>Dang tai...</div>;
 
     return (
@@ -271,6 +296,45 @@ export default function ReaderPortal() {
                             <div className="form-group"><label className="label">So dien thoai</label><input className="input" value={profile.phone || ''} onChange={e => setProfile(prev => ({ ...prev, phone: e.target.value }))} /></div>
                             <div className="form-group"><label className="label">Gioi thieu</label><textarea className="textarea" value={profile.bio || ''} onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))} /></div>
                             <button type="submit" className="form-submit" disabled={saving}>{saving ? 'Dang luu...' : 'Luu ho so'}</button>
+                        </div>
+                    </form>
+
+                    <form className="card" onSubmit={saveAvailability}>
+                        <div className="card-head">
+                            <div>
+                                <div className="card-title">Gio lam viec</div>
+                                <div className="card-meta">Khach chi dat duoc trong cac khung gio dang bat</div>
+                            </div>
+                        </div>
+                        <div className="card-body" style={{ display: 'grid', gap: '.75rem' }}>
+                            {availability.map((rule, index) => (
+                                <div key={rule.weekday} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 72px', gap: '.5rem', alignItems: 'center' }}>
+                                    <div className="tc-id">{WEEKDAYS[rule.weekday]}</div>
+                                    <input
+                                        className="input"
+                                        type="time"
+                                        value={rule.start_time}
+                                        disabled={!rule.is_active}
+                                        onChange={e => updateAvailability(index, 'start_time', e.target.value)}
+                                    />
+                                    <input
+                                        className="input"
+                                        type="time"
+                                        value={rule.end_time}
+                                        disabled={!rule.is_active}
+                                        onChange={e => updateAvailability(index, 'end_time', e.target.value)}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '.35rem', color: 'var(--text-2)', fontSize: '.78rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(rule.is_active)}
+                                            onChange={e => updateAvailability(index, 'is_active', e.target.checked)}
+                                        />
+                                        Bat
+                                    </label>
+                                </div>
+                            ))}
+                            <button type="submit" className="form-submit" disabled={saving || availability.length !== 7}>{saving ? 'Dang luu...' : 'Luu gio lam viec'}</button>
                         </div>
                     </form>
                 </div>

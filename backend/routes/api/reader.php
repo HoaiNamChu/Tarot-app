@@ -13,6 +13,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\ReaderMiddleware::class,
         Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
         Route::get('/stats', [ReaderDashboardController::class, 'stats']);
         Route::get('/services', [ReaderDashboardController::class, 'services']);
+        Route::get('/availability', [ReaderDashboardController::class, 'availability']);
+        Route::put('/availability', [ReaderDashboardController::class, 'updateAvailability']);
         Route::get('/bookings', [ReaderDashboardController::class, 'bookings']);
         Route::post('/bookings', [ReaderDashboardController::class, 'createBooking']);
         Route::put('/bookings/{id}', [ReaderDashboardController::class, 'updateBooking']);

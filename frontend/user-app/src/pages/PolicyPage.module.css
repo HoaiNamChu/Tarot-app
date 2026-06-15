@@ -1,0 +1,73 @@
+.page {
+  min-height: 70vh;
+  background: var(--bg, #0d0b12);
+  color: var(--cream, #f0e8d8);
+}
+
+.hero {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 6rem 1.5rem 2.5rem;
+}
+
+.back {
+  color: var(--gold, #c8a96e);
+  font-size: .82rem;
+  text-decoration: none;
+}
+
+.kicker {
+  color: var(--gold, #c8a96e);
+  font-size: .72rem;
+  letter-spacing: .18em;
+  margin: 2rem 0 .75rem;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.updated {
+  color: var(--muted, #7d708f);
+  font-size: .82rem;
+  margin: 1rem 0 0;
+}
+
+.intro {
+  color: var(--muted-2, #a99fba);
+  font-size: 1.02rem;
+  line-height: 1.8;
+  max-width: 720px;
+  margin: 1.5rem 0 0;
+}
+
+.content {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 1.5rem 5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.section {
+  border-top: 1px solid var(--border-2, rgba(200, 169, 110, .18));
+  padding: 1.35rem 0;
+}
+
+.section h2 {
+  color: var(--gold, #c8a96e);
+  font-size: .9rem;
+  letter-spacing: .14em;
+  margin: 0 0 .7rem;
+  text-transform: uppercase;
+}
+
+.section p {
+  color: var(--muted-2, #a99fba);
+  line-height: 1.75;
+  margin: 0;
+}

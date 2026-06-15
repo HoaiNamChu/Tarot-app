@@ -21,6 +21,8 @@ class Booking extends Model
         'paid_at',
         'cancelled_at',
         'completed_at',
+        'reminder_24h_sent_at',
+        'reminder_1h_sent_at',
     ];
 
     protected $casts = [
@@ -29,6 +31,8 @@ class Booking extends Model
         'paid_at'      => 'datetime',
         'cancelled_at' => 'datetime',
         'completed_at' => 'datetime',
+        'reminder_24h_sent_at' => 'datetime',
+        'reminder_1h_sent_at' => 'datetime',
     ];
 
     public function user()

@@ -6,4 +6,8 @@ export const ROUTES = {
   READERS: '/readers',
   BOOKING: '/booking',
   PAYMENT_RESULT: '/payment-result',
+  TERMS: '/terms',
+  PRIVACY: '/privacy',
+  PAYMENT_POLICY: '/payment-policy',
+  REFUND_POLICY: '/refund-policy',
 }
