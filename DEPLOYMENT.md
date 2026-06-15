@@ -79,6 +79,7 @@ composer install --no-dev --prefer-dist --optimize-autoloader
 php artisan down
 php artisan migrate --force
 php artisan storage:link
+php artisan queue:restart
 php artisan optimize:clear
 php artisan config:cache
 php artisan route:cache
@@ -114,7 +115,7 @@ Deploy each `dist/` folder behind HTTPS with SPA fallback to `index.html`.
 Queue worker:
 
 ```bash
-php artisan queue:work --tries=3 --timeout=90
+php artisan queue:work database --queue=default --sleep=3 --tries=3 --timeout=90 --max-time=3600
 ```
 
 Scheduler cron:
@@ -125,9 +126,20 @@ Scheduler cron:
 
 Use the examples in `deploy/` for Nginx, Supervisor, and cron.
 
+For PHP-FPM, enable OPcache in production. Typical values:
+
+```ini
+opcache.enable=1
+opcache.enable_cli=0
+opcache.validate_timestamps=0
+opcache.memory_consumption=128
+opcache.max_accelerated_files=20000
+```
+
 ## 6. Smoke Tests After Deploy
 
 - Open user app and admin app over HTTPS.
+- Check backend health: `curl https://api.example.com/api/health`.
 - Login as user and admin.
 - Create a booking.
 - Bank payment: submit proof, approve in admin, confirm audit log.
@@ -136,3 +148,5 @@ Use the examples in `deploy/` for Nginx, Supervisor, and cron.
 - Refund: refund only after real bank/VNPay refund, then record amount, reason, reference, and note in admin.
 - Payment methods: configure bank/VietQR and MoMo wallet details in Admin Settings, then disable any method that is not ready before launch.
 - Mail: run `php artisan mail:test your-address@example.com` and test forgot password.
+- Confirm queue is running: `php artisan queue:failed` should not show new failed mail/payment jobs.
+- Confirm scheduler ran recently by checking `storage/logs/scheduler.log`.

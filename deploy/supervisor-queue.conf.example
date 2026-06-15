@@ -1,6 +1,7 @@
 [program:tarot-queue]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/tarot/backend/artisan queue:work --tries=3 --timeout=90
+directory=/var/www/tarot/backend
+command=php artisan queue:work database --queue=default --sleep=3 --tries=3 --timeout=90 --max-time=3600
 autostart=true
 autorestart=true
 stopasgroup=true
@@ -9,5 +10,6 @@ user=www-data
 numprocs=1
 redirect_stderr=true
 stdout_logfile=/var/www/tarot/backend/storage/logs/queue-worker.log
+stdout_logfile_maxbytes=20MB
+stdout_logfile_backups=5
 stopwaitsecs=120
-

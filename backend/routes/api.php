@@ -1,8 +1,11 @@
 <?php
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\Payment\VNPayController;
 use App\Http\Controllers\Api\Payment\MoMoController;
+
+Route::get('/health', HealthController::class)->middleware('throttle:30,1');
 
 // Route::get(
 //     '/payment/vnpay/return',

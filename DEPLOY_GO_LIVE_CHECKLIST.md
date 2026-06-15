@@ -8,6 +8,7 @@ Run on the server after pulling the latest code:
 cd backend
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
+php artisan queue:restart
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
@@ -30,6 +31,12 @@ The scheduler currently handles:
 
 - `bookings:expire` every minute.
 - `bookings:send-reminders` every 15 minutes.
+
+Health check after deploy:
+
+```bash
+curl https://api.your-domain.com/api/health
+```
 
 ## 2. Frontend build
 

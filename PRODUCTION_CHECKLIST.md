@@ -12,7 +12,8 @@
   - `php artisan route:cache`
   - `php artisan view:cache`
 - Run a queue worker for queued emails/jobs:
-  - `php artisan queue:work --tries=3 --timeout=90`
+  - `php artisan queue:work database --queue=default --sleep=3 --tries=3 --timeout=90 --max-time=3600`
+  - Run `php artisan queue:restart` after each deploy.
 - Configure SMTP mail correctly:
   - `MAIL_MAILER=smtp`
   - `MAIL_HOST=smtp.gmail.com`
@@ -26,6 +27,7 @@
 - Confirm password reset email delivery works from the production domain.
 - Point the web server document root to `backend/public`.
 - Ensure `storage/` and `bootstrap/cache/` are writable by the web server user.
+- Enable OPcache for PHP-FPM and reload PHP-FPM after deploy.
 
 ## Environment
 
@@ -50,6 +52,7 @@
 ## Smoke Tests
 
 - Login as a normal user.
+- Confirm `/api/health` returns `status: ok` over HTTPS.
 - Load readers/services.
 - Create a booking.
 - Pay with bank transfer and confirm `pending_verification`.
