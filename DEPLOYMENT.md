@@ -2,6 +2,8 @@
 
 This guide assumes a Linux VPS with Nginx, PHP 8.3+, Composer, Node.js 22+, and MySQL/MariaDB.
 
+For a full step-by-step VPS setup from a fresh Ubuntu server, read `VPS_DEPLOY_GUIDE.md` first.
+
 ## 1. Build Locally Before Upload
 
 Run the full predeploy check from the repository root:

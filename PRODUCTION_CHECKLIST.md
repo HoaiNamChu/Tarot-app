@@ -2,6 +2,7 @@
 
 ## Backend
 
+- For first VPS setup, follow `VPS_DEPLOY_GUIDE.md`.
 - Read `DEPLOYMENT.md` and run `.\scripts\predeploy-check.ps1` locally before release.
 - Set `APP_ENV=production` and `APP_DEBUG=false`.
 - Generate and keep a private `APP_KEY`.
@@ -41,6 +42,7 @@
 - In Admin Settings, configure bank/VietQR details, then enable only the payment methods that are actually ready to accept money.
 - Rotate any credentials that were ever committed, copied into logs, or shared outside the server.
 - Create the first admin account with a strong password, then remove demo/test accounts from production data.
+- Configure daily database backups. See `deploy/mysql-daily-backup.cron.example`.
 
 ## Frontend
 
