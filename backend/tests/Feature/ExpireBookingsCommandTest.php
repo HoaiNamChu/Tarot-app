@@ -44,6 +44,8 @@ class ExpireBookingsCommandTest extends TestCase
 
         $this->assertSame('cancelled', $booking->status);
         $this->assertNotNull($booking->cancelled_at);
+        $this->assertSame('system', $booking->cancelled_by);
+        $this->assertSame('Tu dong huy do het han thanh toan.', $booking->cancel_reason);
         $this->assertSame(Payment::EXPIRED, $pendingPayment->status);
         $this->assertSame(Payment::EXPIRED, $failedPayment->status);
     }

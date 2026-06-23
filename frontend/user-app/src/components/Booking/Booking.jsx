@@ -21,6 +21,7 @@ function Booking() {
   const [readers, setReaders] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadStatus, setLoadStatus] = useState('loading');
   const [busySlots, setBusySlots] = useState([]);
   const [slotStatus, setSlotStatus] = useState(null);
 
@@ -34,14 +35,20 @@ function Booking() {
   const busySlotMonth = monthFromDateTime(form.booked_at);
 
   useEffect(() => {
+    let alive = true;
+
+    setLoadStatus('loading');
     Promise.all([
       api.services.getAll(),
       api.readers.getAll(),
     ]).then(([servicesData, readersData]) => {
+      if (!alive) return;
+
       const normalizedServices = safeArray(servicesData);
       const normalizedReaders = safeArray(readersData);
       setServices(normalizedServices);
       setReaders(normalizedReaders);
+      setLoadStatus('ready');
 
       const serviceId = searchParams.get('service');
       const readerId = searchParams.get('reader');
@@ -58,7 +65,16 @@ function Booking() {
           document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
         }, 150);
       }
-    }).catch(() => { /* ignore */ });
+    }).catch(() => {
+      if (!alive) return;
+      setServices([]);
+      setReaders([]);
+      setLoadStatus('error');
+    });
+
+    return () => {
+      alive = false;
+    };
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
@@ -160,6 +176,8 @@ function Booking() {
   }
 
   const selectedReader = readers.find(r => String(r.id) === form.reader_id);
+  const hasRequiredOptions = services.length > 0 && readers.length > 0;
+  const submitDisabled = loading || loadStatus !== 'ready' || !hasRequiredOptions || slotStatus === 'busy' || slotStatus === 'checking';
 
   return (
     <section id="booking" className={styles['booking-section']}>
@@ -230,9 +248,27 @@ function Booking() {
           )}
 
           <div className={styles['booking-form']}>
+            {loadStatus === 'loading' && (
+              <div className={styles['form-state']} role="status">
+                Dang tai goi dich vu va reader...
+              </div>
+            )}
+
+            {loadStatus === 'error' && (
+              <div className={styles['form-state-error']} role="alert">
+                Chua tai duoc du lieu dat lich. Vui long thu lai sau it phut.
+              </div>
+            )}
+
+            {loadStatus === 'ready' && !hasRequiredOptions && (
+              <div className={styles['form-state-error']} role="alert">
+                Hien chua co dich vu hoac reader dang mo lich.
+              </div>
+            )}
+
             <div className={styles.fr}>
               <label className={styles.fl}>Dich Vu</label>
-              <select className={styles.fsel} name="service_id" value={form.service_id} onChange={handleChange}>
+              <select className={styles.fsel} name="service_id" value={form.service_id} onChange={handleChange} disabled={loadStatus !== 'ready'}>
                 <option value="">-- Chon dich vu --</option>
                 {services.map(s => (
                   <option key={s.id} value={s.id}>
@@ -244,7 +280,7 @@ function Booking() {
 
             <div className={styles.fr}>
               <label className={styles.fl}>Reader</label>
-              <select className={styles.fsel} name="reader_id" value={form.reader_id} onChange={handleChange}>
+              <select className={styles.fsel} name="reader_id" value={form.reader_id} onChange={handleChange} disabled={loadStatus !== 'ready'}>
                 <option value="">-- Chon Reader --</option>
                 {readers.map(r => (
                   <option key={r.id} value={r.id}>
@@ -285,9 +321,9 @@ function Booking() {
             <button
               className={styles['form-submit']}
               onClick={submitBooking}
-              disabled={loading || slotStatus === 'busy' || slotStatus === 'checking'}
+              disabled={submitDisabled}
             >
-              {loading ? 'Dang xu ly...' : 'Xac Nhan Dat Lich'}
+              {loading ? 'Dang xu ly...' : loadStatus === 'loading' ? 'Dang tai du lieu...' : 'Xac Nhan Dat Lich'}
             </button>
           </div>
         </div>

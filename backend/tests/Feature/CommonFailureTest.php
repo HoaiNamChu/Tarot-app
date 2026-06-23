@@ -68,6 +68,12 @@ class CommonFailureTest extends TestCase
             'user_id' => $user->id,
             'expires_at' => now()->subMinute(),
         ]);
+        $payment = Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'vnpay',
+            'amount' => 250000,
+            'status' => Payment::PENDING,
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -78,9 +84,39 @@ class CommonFailureTest extends TestCase
             ->assertJsonStructure(['message']);
 
         $booking->refresh();
+        $payment->refresh();
         $this->assertSame('cancelled', $booking->status);
         $this->assertNotNull($booking->cancelled_at);
-        $this->assertDatabaseCount('payments', 0);
+        $this->assertSame('system', $booking->cancelled_by);
+        $this->assertSame('Tu dong huy do het han thanh toan.', $booking->cancel_reason);
+        $this->assertSame(Payment::EXPIRED, $payment->status);
+    }
+
+    public function test_confirmed_unpaid_booking_can_still_be_paid_after_hold_expired(): void
+    {
+        $user = User::factory()->create();
+        $booking = $this->makeBooking([
+            'user_id' => $user->id,
+            'status' => 'confirmed',
+            'payment_status' => 'unpaid',
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/bookings/{$booking->id}/pay", [
+            'payment_method' => 'bank',
+            'proof_code' => 'FT123',
+        ])->assertOk()
+            ->assertJson([
+                'success' => true,
+                'payment_status' => 'pending_verification',
+            ]);
+
+        $booking->refresh();
+        $this->assertSame('confirmed', $booking->status);
+        $this->assertSame('pending_verification', $booking->payment_status);
+        $this->assertDatabaseCount('payments', 1);
     }
 
     public function test_admin_refund_cannot_exceed_booking_amount(): void
@@ -135,6 +171,103 @@ class CommonFailureTest extends TestCase
 
         $this->assertSame('unpaid', $booking->refresh()->payment_status);
         $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_admin_cannot_mark_refund_pending_for_unpaid_booking(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $booking = $this->makeBooking([
+            'payment_status' => 'unpaid',
+            'payment_method' => 'bank',
+        ]);
+
+        $this->patchJson("/api/admin/bookings/{$booking->id}/payment", [
+            'payment_status' => 'refund_pending',
+            'payment_method' => 'bank',
+        ])->assertUnprocessable()
+            ->assertJson(['message' => 'Chi co the cho hoan tien booking da thanh toan.']);
+
+        $this->assertSame('unpaid', $booking->refresh()->payment_status);
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_customer_cancel_paid_booking_marks_refund_pending(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $booking = $this->makeBooking([
+            'user_id' => $user->id,
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+        ]);
+
+        $payment = Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'bank',
+            'amount' => 250000,
+            'status' => Payment::SUCCESS,
+            'paid_at' => now(),
+        ]);
+
+        $this->patchJson("/api/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Khach huy va can hoan tien',
+        ])->assertOk()
+            ->assertJson(['payment_status' => 'refund_pending']);
+
+        $this->assertSame('cancelled', $booking->refresh()->status);
+        $this->assertSame('refund_pending', $booking->payment_status);
+        $this->assertSame(Payment::SUCCESS, $payment->refresh()->status);
+    }
+
+    public function test_refund_pending_booking_cannot_be_paid_again(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $booking = $this->makeBooking([
+            'user_id' => $user->id,
+            'status' => 'cancelled',
+            'payment_status' => 'refund_pending',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+            'cancelled_at' => now(),
+        ]);
+
+        $this->patchJson("/api/bookings/{$booking->id}/pay", [
+            'payment_method' => 'bank',
+            'proof_code' => 'PAY-AGAIN',
+        ])->assertStatus(409);
+
+        $this->assertDatabaseCount('payments', 0);
+        $this->assertSame('refund_pending', $booking->refresh()->payment_status);
+    }
+
+    public function test_non_cancelled_refund_pending_booking_cannot_be_paid_again(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $booking = $this->makeBooking([
+            'user_id' => $user->id,
+            'status' => 'confirmed',
+            'payment_status' => 'refund_pending',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+        ]);
+
+        $this->patchJson("/api/bookings/{$booking->id}/pay", [
+            'payment_method' => 'bank',
+            'proof_code' => 'PAY-AGAIN',
+        ])->assertStatus(409)
+            ->assertJson(['message' => 'Booking khong con o trang thai cho thanh toan.']);
+
+        $this->assertDatabaseCount('payments', 0);
+        $this->assertSame('refund_pending', $booking->refresh()->payment_status);
     }
 
     private function makeBooking(array $overrides = []): Booking

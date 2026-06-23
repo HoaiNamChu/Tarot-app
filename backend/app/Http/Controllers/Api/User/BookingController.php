@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BookingCancelled;
 use App\Models\AppSetting;
+use App\Models\Payment;
+use App\Services\Booking\BookingCompletionService;
 use App\Services\Booking\CreateBookingService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +44,10 @@ class BookingController extends Controller
 
     public function cancel(Request $request, $id)
     {
+        $data = $request->validate([
+            'cancel_reason' => 'nullable|string|max:1000',
+        ]);
+
         $booking = Booking::where('user_id', $request->user()->id)
             ->where('id', $id)
             ->firstOrFail();
@@ -54,7 +60,10 @@ class BookingController extends Controller
 
         $booking->update([
             'status'       => 'cancelled',
+            'payment_status' => $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status,
             'cancelled_at' => now(),
+            'cancel_reason' => $data['cancel_reason'] ?? null,
+            'cancelled_by' => 'customer',
         ]);
 
         try {
@@ -66,13 +75,45 @@ class BookingController extends Controller
             ]);
         }
 
-        app(NotificationService::class)->notifyAdmins('booking.cancelled_by_customer', 'Khach huy lich', ($booking->user?->name ?? 'Khach hang') . ' da huy lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT), '/bookings', [
+        app(NotificationService::class)->notifyAdmins('booking.cancelled_by_customer', 'Khach huy lich', ($booking->user?->name ?? 'Khach hang') . ' da huy lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . (!empty($data['cancel_reason']) ? '. Ly do: ' . $data['cancel_reason'] : ''), '/bookings', [
             'booking_id' => $booking->id,
             'reader' => $booking->reader?->name,
+            'cancel_reason' => $data['cancel_reason'] ?? null,
         ]);
         app(NotificationService::class)->notifyReaderForBooking($booking, 'booking.cancelled_by_customer', 'Khach da huy lich', ($booking->user?->name ?? 'Khach hang') . ' da huy lich ' . $booking->booked_at?->format('d/m/Y H:i'));
 
-        return response()->json(['message' => 'Đã huỷ lịch thành công.']);
+        return response()->json([
+            'message' => 'Đã huỷ lịch thành công.',
+            'payment_status' => $booking->refresh()->payment_status,
+        ]);
+    }
+
+    public function confirmCompletion(Request $request, $id, BookingCompletionService $service)
+    {
+        $booking = Booking::with(['user', 'reader.user', 'service', 'payments'])
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($id);
+
+        $booking = $service->confirmByCustomer($booking);
+
+        return response()->json([
+            'message' => 'Da xac nhan buoi xem hoan thanh.',
+            'booking' => $this->formatBooking($booking->load(['reader', 'service', 'payments'])),
+        ]);
+    }
+
+    public function disputeCompletion(Request $request, $id, BookingCompletionService $service)
+    {
+        $booking = Booking::with(['user', 'reader.user', 'service', 'payments'])
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($id);
+
+        $booking = $service->disputeByCustomer($booking);
+
+        return response()->json([
+            'message' => 'Da ghi nhan phan hoi chua xem. Admin se kiem tra lai.',
+            'booking' => $this->formatBooking($booking->load(['reader', 'service', 'payments'])),
+        ]);
     }
 
     public function pay(Request $request, $id, \App\Services\Payment\PaymentService $service)
@@ -104,8 +145,8 @@ class BookingController extends Controller
                 return response()->json(['message' => 'Booking đã bị huỷ.'], 409);
             }
 
-            if ($booking->payment_status === 'paid') {
-                return response()->json(['message' => 'Booking đã thanh toán.'], 409);
+            if ($booking->payment_status !== 'unpaid') {
+                return response()->json(['message' => 'Booking khong con o trang thai cho thanh toan.'], 409);
             }
 
             if ($booking->status === 'completed') {
@@ -113,10 +154,16 @@ class BookingController extends Controller
             }
 
             // FIX: bỏ check duplicate, thêm cancelled_at khi tự cancel do hết hạn
-            if ($booking->expires_at && $booking->expires_at->isPast()) {
+            if ($booking->status === 'pending' && $booking->expires_at && $booking->expires_at->isPast()) {
+                $booking->payments()
+                    ->whereIn('status', [Payment::PENDING, Payment::FAILED])
+                    ->update(['status' => Payment::EXPIRED]);
+
                 $booking->update([
                     'status'       => 'cancelled',
                     'cancelled_at' => now(),
+                    'cancel_reason' => 'Tu dong huy do het han thanh toan.',
+                    'cancelled_by' => 'system',
                 ]);
                 return response()->json(['message' => 'Booking đã hết hạn thanh toán.'], 410);
             }
@@ -295,6 +342,10 @@ class BookingController extends Controller
             'price'                 => number_format($b->service->price, 0, ',', '.') . 'đ',
             'amount'                => $b->service->price,
             'status'                => $b->status,
+            'completion_requested_at' => $b->completion_requested_at?->toIso8601String(),
+            'completion_auto_complete_at' => $b->completion_auto_complete_at?->toIso8601String(),
+            'completion_confirmed_at' => $b->completion_confirmed_at?->toIso8601String(),
+            'completion_disputed_at' => $b->completion_disputed_at?->toIso8601String(),
             'payment_status'        => $b->payment_status,
             'payment_method'        => $b->payment_method,
             'latest_payment_status' => $latestPayment?->status,
@@ -302,6 +353,8 @@ class BookingController extends Controller
             'reviewed'              => $b->reviewed ?? false,
             'zoom_link'             => $b->zoom_link,
             'expires_at'            => $b->expires_at?->toIso8601String(),
+            'cancel_reason'         => $b->cancel_reason,
+            'cancelled_by'          => $b->cancelled_by,
         ];
     }
 }

@@ -96,7 +96,8 @@ CACHE_STORE=database
 SESSION_DRIVER=database
 
 MAIL_MAILER=smtp
-MAIL_SCHEME=tls
+# Leave MAIL_SCHEME empty for port 587. Use MAIL_SCHEME=smtps only for port 465.
+MAIL_SCHEME=
 MAIL_HOST=your-smtp-host
 MAIL_PORT=587
 MAIL_USERNAME=your-smtp-user
@@ -203,6 +204,7 @@ cd /var/www/tarot/backend
 php artisan mail:test your-email@example.com
 php artisan queue:failed
 php artisan schedule:list
+php artisan app:preflight --production
 ```
 
 Manual checks:
@@ -243,4 +245,3 @@ VITE_API_URL=https://api.your-domain.com npm run build
 sudo supervisorctl restart tarot-queue:*
 sudo systemctl reload nginx
 ```
-

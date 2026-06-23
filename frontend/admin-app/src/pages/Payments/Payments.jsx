@@ -6,6 +6,7 @@ import { InfoRow, Modal } from '../../components/Modal/Modal.jsx';
 const ST = {
     paid: ['b-green', 'Da thanh toan'],
     pending_verification: ['b-amber', 'Cho xac nhan'],
+    refund_pending: ['b-cyan', 'Cho hoan tien'],
     refunded: ['b-rose', 'Da hoan'],
     unpaid: ['b-amber', 'Chua thanh toan'],
 };
@@ -14,6 +15,7 @@ const TABS = [
     ['all', 'Tat ca'],
     ['paid', 'Da thanh toan'],
     ['pending_verification', 'Cho xac nhan'],
+    ['refund_pending', 'Cho hoan tien'],
     ['refunded', 'Hoan tien'],
 ];
 
@@ -48,6 +50,8 @@ export default function Payments() {
         revenue: payments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0),
         pending: payments.filter(p => p.payment_status === 'pending_verification').length,
         pendingAmount: payments.filter(p => p.payment_status === 'pending_verification').reduce((sum, p) => sum + (p.amount || 0), 0),
+        refundPending: payments.filter(p => p.payment_status === 'refund_pending').length,
+        refundPendingAmount: payments.filter(p => p.payment_status === 'refund_pending').reduce((sum, p) => sum + (p.amount || 0), 0),
         refunded: payments.filter(p => p.payment_status === 'refunded').reduce((sum, p) => sum + (p.amount || 0), 0),
     };
 
@@ -87,7 +91,7 @@ export default function Payments() {
                 method: row.method || 'bank',
                 refunded_at: payment_status === 'refunded' ? new Date().toLocaleString('vi-VN') : p.refunded_at,
             } : p));
-            showToast(payment_status === 'paid' ? 'Da xac nhan thanh toan' : payment_status === 'refunded' ? 'Da ghi nhan hoan tien' : 'Da cap nhat thanh toan');
+            showToast(payment_status === 'paid' ? 'Da xac nhan thanh toan' : payment_status === 'refund_pending' ? 'Da danh dau cho hoan tien' : payment_status === 'refunded' ? 'Da ghi nhan hoan tien' : 'Da cap nhat thanh toan');
             closeModal();
         } catch (err) {
             showToast(err.message || 'Loi cap nhat thanh toan', 'error');
@@ -105,6 +109,7 @@ export default function Payments() {
     return (
         <div>
             <div className="stats-row">
+                <div className="stat-card c-cyan"><div className="stat-icon">!</div><div className="stat-lbl">Cho hoan tien</div><div className="stat-val">{stats.refundPending}</div><div className="stat-delta">{(stats.refundPendingAmount / 1000000).toFixed(2)}tr</div></div>
                 <div className="stat-card c-green"><div className="stat-icon">◆</div><div className="stat-lbl">Doanh thu</div><div className="stat-val">{(stats.revenue / 1000000).toFixed(1)}tr</div><div className="stat-delta">Da xac nhan</div></div>
                 <div className="stat-card c-amber"><div className="stat-icon">⏳</div><div className="stat-lbl">Cho xu ly</div><div className="stat-val">{stats.pending}</div><div className="stat-delta">{(stats.pendingAmount / 1000000).toFixed(2)}tr</div></div>
                 <div className="stat-card c-rose"><div className="stat-icon">↩</div><div className="stat-lbl">Hoan tien</div><div className="stat-val">{payments.filter(p => p.payment_status === 'refunded').length}</div><div className="stat-delta">{(stats.refunded / 1000000).toFixed(2)}tr</div></div>
@@ -139,7 +144,7 @@ export default function Payments() {
                                         <div className="act-row">
                                             <button type="button" className="ic-btn" title="Chi tiet" onClick={() => { setSelected(t); setModal('detail'); }}>⊙</button>
                                             {t.payment_status === 'pending_verification' && <button className="ic-btn ok" title="Duyet thanh toan" onClick={() => updatePayment(t, 'paid')}>✓</button>}
-                                            {t.payment_status === 'paid' && <button className="ic-btn del" title="Hoan tien" onClick={() => openRefundModal(t)}>↩</button>}
+                                            {['paid', 'refund_pending'].includes(t.payment_status) && <button className="ic-btn del" title="Hoan tien" onClick={() => openRefundModal(t)}>↩</button>}
                                         </div>
                                     </td>
                                 </tr>
@@ -159,6 +164,11 @@ export default function Payments() {
                         <button type="button" className="btn-secondary" onClick={closeModal}>Dong</button>
                         <button type="button" className="btn-primary" onClick={() => updatePayment(selected, 'paid')}>Duyet thanh toan</button>
                     </>
+                ) : ['paid', 'refund_pending'].includes(selected?.payment_status) ? (
+                    <>
+                        <button type="button" className="btn-secondary" onClick={closeModal}>Dong</button>
+                        <button type="button" className="btn-danger" onClick={() => openRefundModal(selected)}>Hoan tien</button>
+                    </>
                 ) : <button type="button" className="btn-secondary" onClick={closeModal}>Dong</button>}
             >
                 {selected && (
@@ -168,7 +178,14 @@ export default function Payments() {
                         <InfoRow label="Dich vu" value={selected.svc} />
                         <InfoRow label="So tien" value={selected.price} />
                         <InfoRow label="Phuong thuc" value={selected.method || 'bank'} />
+                        <InfoRow label="Trang thai lich" value={selected.booking_status || '-'} />
                         <InfoRow label="Trang thai"><PaymentBadge status={selected.payment_status} /></InfoRow>
+                        {selected.payment_status === 'refund_pending' && (
+                            <>
+                                <InfoRow label="Nguoi huy" value={selected.cancelled_by || '-'} />
+                                <InfoRow label="Ly do huy" value={selected.cancel_reason || '-'} />
+                            </>
+                        )}
                         <InfoRow label="Ma/chung tu" value={selected.proof_code} />
                         <InfoRow label="Ghi chu" value={selected.proof_note} />
                         <InfoRow label="Thoi gian" value={selected.paid_at || selected.submitted_at} />

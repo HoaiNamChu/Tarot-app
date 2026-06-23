@@ -8,6 +8,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\AdminMiddleware::class, 
     ->prefix('admin')
     ->group(function () {
         Route::get('/stats', [AdminController::class, 'stats']);
+        Route::get('/readiness', [AdminController::class, 'readiness']);
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
         Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
@@ -38,5 +39,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\AdminMiddleware::class, 
         Route::get('/payments', [AdminController::class, 'payments']);
         Route::get('/settings', [AdminController::class, 'settings']);
         Route::put('/settings', [AdminController::class, 'updateSettings']);
+        Route::get('/policies', [AdminController::class, 'policies']);
+        Route::put('/policies/{type}', [AdminController::class, 'updatePolicy']);
         Route::get('/action-logs', [AdminController::class, 'actionLogs']);
     });

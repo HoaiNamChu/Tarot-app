@@ -64,7 +64,6 @@ export default function Readers() {
         api.admin.readers.getAll()
             .then(data => setReaders(data || []))
             .catch(() => {
-                console.error('Readers fetch error');
                 showToast('Loi tai danh sach reader', 'error');
             })
             .finally(() => setLoading(false));

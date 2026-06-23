@@ -25,8 +25,7 @@ export default function Analytics() {
     useEffect(() => {
         api.admin.stats()
             .then(data => setAnalytics(data || {}))
-            .catch(err => {
-                console.error('Analytics fetch error:', err);
+            .catch(() => {
                 showToast('Lỗi tải dữ liệu phân tích', 'error');
             })
             .finally(() => setLoading(false));

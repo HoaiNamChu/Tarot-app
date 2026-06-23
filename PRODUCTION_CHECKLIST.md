@@ -19,7 +19,7 @@
   - `MAIL_MAILER=smtp`
   - `MAIL_HOST=smtp.gmail.com`
   - `MAIL_PORT=587`
-  - `MAIL_SCHEME=tls` or legacy `MAIL_ENCRYPTION=tls`
+  - Leave `MAIL_SCHEME` empty for port 587, or use `MAIL_SCHEME=smtps` for port 465. Do not set `MAIL_SCHEME=tls`.
   - `MAIL_FROM_ADDRESS` should match or be authorized by the SMTP account.
 - Send a production smoke-test email:
   - `php artisan mail:test you@example.com`
@@ -55,6 +55,7 @@
 
 - Login as a normal user.
 - Confirm `/api/health` returns `status: ok` over HTTPS.
+- Confirm `php artisan app:preflight --production` passes on the server.
 - Load readers/services.
 - Create a booking.
 - Pay with bank transfer and confirm `pending_verification`.
@@ -73,7 +74,7 @@
 
 ## Current Code Readiness
 
-- User and admin frontends must pass `npm run lint` and `npm run build`.
+- User and admin frontends must pass `npm run lint` and `VITE_API_URL=https://api.example.com npm run build`.
 - Backend must pass `php artisan test` and `php artisan route:list`.
 - Admin destructive actions should hide readers/services with historical bookings instead of deleting operational records.
 - Production DB must include `app_settings`, `admin_action_logs`, payment proof columns, and refund audit columns from the latest migrations.

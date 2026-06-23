@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\PublicApi;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
+use App\Services\PolicyContentService;
 use App\Services\Payment\MoMoService;
 use App\Services\Payment\VNPayService;
 
@@ -29,5 +30,16 @@ class SettingController extends Controller
             'momo_account_name' => AppSetting::getValue('momo_account_name', ''),
             'momo_transfer_prefix' => AppSetting::getValue('momo_transfer_prefix', 'MOMO'),
         ]);
+    }
+
+    public function policy(string $type, PolicyContentService $policies)
+    {
+        $policy = $policies->get($type);
+
+        if (!$policy) {
+            return response()->json(['message' => 'Policy not found.'], 404);
+        }
+
+        return response()->json($policy);
     }
 }

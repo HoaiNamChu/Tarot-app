@@ -27,17 +27,32 @@ class PaymentServiceTest extends TestCase
         $this->assertDatabaseCount('payments', 1);
     }
 
-    public function test_it_does_not_create_payment_for_paid_booking(): void
+    public function test_it_does_not_create_payment_for_non_unpaid_booking(): void
     {
-        $booking = $this->makeBooking(['payment_status' => 'paid']);
+        foreach (['pending_verification', 'paid', 'refund_pending', 'refunded'] as $status) {
+            $booking = $this->makeBooking(['payment_status' => $status]);
 
-        try {
-            app(PaymentService::class)->create($booking, 'vnpay');
-            $this->fail('Payment creation should fail for paid bookings.');
-        } catch (\Exception) {
-            $this->assertDatabaseCount('payments', 0);
+            try {
+                app(PaymentService::class)->create($booking, 'vnpay');
+                $this->fail("Payment creation should fail for {$status} bookings.");
+            } catch (\Exception) {
+                $this->assertDatabaseMissing('payments', ['booking_id' => $booking->id]);
+            }
         }
+    }
 
+    public function test_it_allows_confirmed_unpaid_booking_after_hold_expired(): void
+    {
+        $booking = $this->makeBooking([
+            'status' => 'confirmed',
+            'payment_status' => 'unpaid',
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        $payment = app(PaymentService::class)->create($booking, 'vnpay');
+
+        $this->assertSame($booking->id, $payment->booking_id);
+        $this->assertDatabaseCount('payments', 1);
     }
 
     private function makeBooking(array $overrides = []): Booking

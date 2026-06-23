@@ -1,4 +1,13 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+function resolveApiBase() {
+    const configured = import.meta.env.VITE_API_URL;
+    if (configured) return configured.replace(/\/$/, '');
+
+    if (import.meta.env.DEV) return 'http://localhost:8000';
+
+    throw new Error('Missing VITE_API_URL for production build.');
+}
+
+const BASE = resolveApiBase();
 
 function getToken() {
     return localStorage.getItem('admin_token');
@@ -41,12 +50,13 @@ export const api = {
     },
     admin: {
         stats: () => request('/admin/stats'),
+        readiness: () => request('/admin/readiness'),
         search: (q) => request(`/admin/search?q=${encodeURIComponent(q)}`),
         bookings: {
             getAll: (params = '') => request(`/admin/bookings?${params}`),
             create: (data) => request('/admin/bookings', { method: 'POST', body: JSON.stringify(data) }),
             confirm: (id) => request(`/admin/bookings/${id}/confirm`, { method: 'PATCH' }),
-            cancel: (id) => request(`/admin/bookings/${id}/cancel`, { method: 'PATCH' }),
+            cancel: (id, data = {}) => request(`/admin/bookings/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(data) }),
             complete: (id) => request(`/admin/bookings/${id}/complete`, { method: 'PATCH' }),
             updateStatus: (id, status) => request(`/admin/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
             setZoom: (id, link) => request(`/admin/bookings/${id}/zoom`, { method: 'PATCH', body: JSON.stringify({ zoom_link: link }) }),
@@ -63,6 +73,10 @@ export const api = {
             create: (data) => request('/admin/services', { method: 'POST', body: JSON.stringify(data) }),
             update: (id, d) => request(`/admin/services/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
             delete: (id) => request(`/admin/services/${id}`, { method: 'DELETE' }),
+        },
+        policies: {
+            getAll: () => request('/admin/policies'),
+            update: (type, data) => request(`/admin/policies/${type}`, { method: 'PUT', body: JSON.stringify(data) }),
         },
         users: {
             getAll: () => request('/admin/users'),
@@ -98,7 +112,7 @@ export const api = {
         updateBooking: (id, data) => request(`/reader/bookings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
         confirmBooking: (id) => request(`/reader/bookings/${id}/confirm`, { method: 'PATCH' }),
         completeBooking: (id) => request(`/reader/bookings/${id}/complete`, { method: 'PATCH' }),
-        cancelBooking: (id) => request(`/reader/bookings/${id}/cancel`, { method: 'PATCH' }),
+        cancelBooking: (id, data = {}) => request(`/reader/bookings/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(data) }),
         updateProfile: (data) => request('/reader/profile', { method: 'PUT', body: JSON.stringify(data) }),
         notifications: {
             getAll: () => request('/reader/notifications'),

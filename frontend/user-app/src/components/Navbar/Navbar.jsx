@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+
 import styles from './Navbar.module.css';
 import { useAuth } from '../../context/AuthContext';
 
 const NAV_LINKS = [
-    { href: '#free-reading', label: 'Thử miễn phí' },
-    { href: '#services', label: 'Dịch vụ' },
+    { href: '#free-reading', label: 'Thu mien phi' },
+    { href: '#services', label: 'Dich vu' },
     { href: '#readers', label: 'Tarot Reader' },
-    { href: '#booking', label: 'Đặt lịch' },
+    { href: '#booking', label: 'Dat lich' },
 ];
 
 function Navbar() {
-    const { isLoggedIn, currentUser, openModal, handleLogout } = useAuth();
+    const { isLoggedIn, currentUser, openModal, handleLogout, loading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
@@ -49,25 +50,27 @@ function Navbar() {
                 </ul>
 
                 <div className={styles['nav-right']}>
-                    {/* Desktop auth */}
-                    {isLoggedIn ? (
+                    {loading ? (
+                        <div className={`${styles['nav-auth-placeholder']} ${styles.desktopOnly}`} aria-hidden="true" />
+                    ) : isLoggedIn ? (
                         <div className={`${styles['nav-user']} ${styles.desktopOnly}`}>
                             <div className={styles['user-avatar']}>{initials}</div>
                             <span className={styles['user-name']}>{currentUser?.name.split(' ').pop()}</span>
-                            <button className={styles['nav-cta']} onClick={() => navigate('/dashboard')}>Tài khoản</button>
-                            <button className={styles['nav-login']} onClick={handleLogout}>Đăng xuất</button>
+                            <button className={styles['nav-cta']} onClick={() => navigate('/dashboard')}>Tai khoan</button>
+                            <button className={styles['nav-login']} onClick={handleLogout}>Dang xuat</button>
                         </div>
                     ) : (
                         <div className={`${styles['nav-auth-btns']} ${styles.desktopOnly}`}>
-                            <button className={styles['nav-login']} onClick={() => openModal('login')}>Đăng nhập</button>
-                            <button className={styles['nav-cta']} onClick={() => openModal('register')}>Đăng ký</button>
+                            <button className={styles['nav-login']} onClick={() => openModal('login')}>Dang nhap</button>
+                            <button className={styles['nav-cta']} onClick={() => openModal('register')}>Dang ky</button>
                         </div>
                     )}
 
-                    {/* Hamburger */}
                     <button
                         className={`${styles.hamburger} ${menuOpen ? styles.open : ''}`}
                         onClick={() => setMenuOpen(o => !o)}
+                        aria-label="Mo menu"
+                        aria-expanded={menuOpen}
                     >
                         <span></span>
                         <span></span>
@@ -76,7 +79,6 @@ function Navbar() {
                 </div>
             </nav>
 
-            {/* Mobile Menu */}
             <div className={`${styles.mobileMenu} ${menuOpen ? styles.open : ''}`}>
                 {NAV_LINKS.map(link => (
                     <a
@@ -91,7 +93,9 @@ function Navbar() {
 
                 <div className={styles.mobileDivider} />
 
-                {isLoggedIn ? (
+                {loading ? (
+                    <div className={styles.mobileMenuItem}>Dang dong bo tai khoan...</div>
+                ) : isLoggedIn ? (
                     <>
                         <div style={{ padding: '.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
                             <div className={styles['user-avatar']}>{initials}</div>
@@ -101,20 +105,20 @@ function Navbar() {
                             </div>
                         </div>
                         <button className={styles.mobileMenuItem} onClick={() => { navigate('/dashboard'); setMenuOpen(false); }}>
-                            👤 Tài khoản của tôi
+                            Tai khoan cua toi
                         </button>
                         <button className={styles.mobileMenuItem} onClick={handleLogoutClick} style={{ color: 'var(--rose)' }}>
-                            Đăng xuất
+                            Dang xuat
                         </button>
                     </>
                 ) : (
                     <>
                         <button className={styles.mobileMenuItem} onClick={() => { openModal('login'); setMenuOpen(false); }}>
-                            Đăng nhập
+                            Dang nhap
                         </button>
                         <button className={styles.mobileMenuItem} onClick={() => { openModal('register'); setMenuOpen(false); }}
                             style={{ color: 'var(--gold)', borderColor: 'var(--border)' }}>
-                            Đăng ký miễn phí
+                            Dang ky mien phi
                         </button>
                     </>
                 )}

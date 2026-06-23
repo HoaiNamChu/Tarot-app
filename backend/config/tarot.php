@@ -2,6 +2,7 @@
 
 return [
     'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost')),
+    'admin_frontend_url' => env('ADMIN_FRONTEND_URL', env('FRONTEND_URL', env('APP_URL', 'http://localhost'))),
     'admin_email' => env('ADMIN_EMAIL', 'admin@lunaarcana.com'),
 
     'daily_limits' => [

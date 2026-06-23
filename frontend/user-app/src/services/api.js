@@ -1,4 +1,13 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+function resolveApiBase() {
+  const configured = import.meta.env.VITE_API_URL;
+  if (configured) return configured.replace(/\/$/, '');
+
+  if (import.meta.env.DEV) return 'http://localhost:8000';
+
+  throw new Error('Missing VITE_API_URL for production build.');
+}
+
+const BASE = resolveApiBase();
 const PUBLIC_CACHE_TTL_MS = 2 * 60 * 1000;
 const memoryCache = new Map();
 const pendingRequests = new Map();
@@ -147,10 +156,15 @@ export const api = {
   settings: {
     payment: () => request('/settings/payment'),
   },
+  policies: {
+    get: (type) => request(`/policies/${encodeURIComponent(type)}`),
+  },
   bookings: {
     getAll: () => request('/bookings'),
     create: (data) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),
-    cancel: (id) => request(`/bookings/${id}/cancel`, { method: 'PATCH' }),
+    cancel: (id, data = {}) => request(`/bookings/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(data) }),
+    confirmCompletion: (id) => request(`/bookings/${id}/confirm-completion`, { method: 'PATCH' }),
+    disputeCompletion: (id) => request(`/bookings/${id}/dispute-completion`, { method: 'PATCH' }),
     pay: (id, method, proof = {}) => request(`/bookings/${id}/pay`, { method: 'PATCH', body: JSON.stringify({ payment_method: method, ...proof }) }),
     getReviews: () => request('/bookings/reviews'),
     addReview: (id, data) => request(`/bookings/${id}/reviews`, { method: 'POST', body: JSON.stringify(data) }),

@@ -159,11 +159,30 @@ class AdminBookingTest extends TestCase
         Sanctum::actingAs($admin);
         $booking = $this->makeBooking(['status' => 'confirmed'], ['email' => 'cancel-customer@example.com']);
 
-        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")->assertOk();
+        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Reader bi ban dot xuat',
+        ])->assertOk();
 
         Mail::assertQueued(BookingCancelled::class, function (BookingCancelled $mail) use ($booking) {
             return $mail->hasTo('cancel-customer@example.com') && $mail->booking->id === $booking->id;
         });
+        $this->assertSame('admin', $booking->refresh()->cancelled_by);
+        $this->assertSame('Reader bi ban dot xuat', $booking->cancel_reason);
+    }
+
+    public function test_admin_cancel_booking_requires_reason(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+        $booking = $this->makeBooking(['status' => 'confirmed'], ['email' => 'cancel-required@example.com']);
+
+        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cancel_reason']);
+
+        $this->assertSame('confirmed', $booking->refresh()->status);
+        $this->assertNull($booking->cancelled_at);
+        $this->assertNull($booking->cancel_reason);
     }
 
     public function test_user_cancel_booking_queues_cancelled_mail_to_customer(): void
@@ -204,6 +223,26 @@ class AdminBookingTest extends TestCase
         $this->assertNotNull($booking->cancelled_at);
     }
 
+    public function test_user_cannot_cancel_completion_pending_booking(): void
+    {
+        $user = User::factory()->create(['email' => 'completion-pending-cancel@example.com']);
+        Sanctum::actingAs($user);
+        $booking = $this->makeBooking([
+            'user_id' => $user->id,
+            'status' => 'completion_pending',
+            'payment_status' => 'paid',
+            'completion_requested_at' => now(),
+            'completion_auto_complete_at' => now()->addHours(24),
+        ], ['email' => 'completion-pending-cancel@example.com']);
+
+        $this->patchJson("/api/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Khach muon huy sau khi reader bao hoan thanh',
+        ])->assertUnprocessable();
+
+        $this->assertSame('completion_pending', $booking->refresh()->status);
+        $this->assertNull($booking->cancelled_at);
+    }
+
     public function test_admin_cancel_booking_still_succeeds_when_notification_mail_fails(): void
     {
         Mail::shouldReceive('to')
@@ -214,11 +253,45 @@ class AdminBookingTest extends TestCase
         Sanctum::actingAs($admin);
         $booking = $this->makeBooking(['status' => 'confirmed'], ['email' => 'admin-cancel-fail@example.com']);
 
-        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")->assertOk();
+        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Khach yeu cau doi lich',
+        ])->assertOk();
 
         $booking->refresh();
         $this->assertSame('cancelled', $booking->status);
         $this->assertNotNull($booking->cancelled_at);
+        $this->assertSame('admin', $booking->cancelled_by);
+    }
+
+    public function test_admin_cancel_paid_booking_marks_refund_pending(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $booking = $this->makeBooking([
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+        ], ['email' => 'admin-paid-cancel@example.com']);
+
+        $payment = Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'bank',
+            'amount' => 250000,
+            'status' => Payment::SUCCESS,
+            'paid_at' => now(),
+        ]);
+
+        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Khach can hoan tien',
+        ])->assertOk()
+            ->assertJson(['payment_status' => 'refund_pending']);
+
+        $booking->refresh();
+        $this->assertSame('cancelled', $booking->status);
+        $this->assertSame('refund_pending', $booking->payment_status);
+        $this->assertSame(Payment::SUCCESS, $payment->refresh()->status);
     }
 
     public function test_admin_refund_requires_amount_and_reason(): void
@@ -287,6 +360,216 @@ class AdminBookingTest extends TestCase
         $this->assertSame('Customer requested cancellation', $payment->refund_reason);
         $this->assertSame($admin->id, $payment->refunded_by);
         $this->assertNotNull($payment->refunded_at);
+    }
+
+    public function test_admin_can_refund_refund_pending_booking(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+        $booking = $this->makeBooking([
+            'status' => 'cancelled',
+            'payment_status' => 'refund_pending',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+            'cancelled_at' => now(),
+        ]);
+
+        $payment = Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'bank',
+            'amount' => 250000,
+            'status' => Payment::SUCCESS,
+            'paid_at' => now(),
+        ]);
+
+        $this->patchJson("/api/admin/bookings/{$booking->id}/payment", [
+            'payment_status' => 'refunded',
+            'payment_method' => 'bank',
+            'refund_amount' => 250000,
+            'refund_reference' => 'RF-PENDING-1',
+            'refund_reason' => 'Refund pending completed',
+        ])->assertOk();
+
+        $this->assertSame('refunded', $booking->refresh()->payment_status);
+        $this->assertSame(Payment::REFUNDED, $payment->refresh()->status);
+        $this->assertSame('RF-PENDING-1', $payment->refund_reference);
+    }
+
+    public function test_admin_payments_include_refund_pending_cancellation_context(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $booking = $this->makeBooking([
+            'status' => 'cancelled',
+            'payment_status' => 'refund_pending',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+            'cancelled_at' => now(),
+            'cancel_reason' => 'Khach yeu cau hoan tien',
+            'cancelled_by' => 'customer',
+        ]);
+
+        Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'bank',
+            'amount' => 250000,
+            'status' => Payment::SUCCESS,
+            'paid_at' => now(),
+        ]);
+
+        $this->getJson('/api/admin/payments')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $booking->id,
+                'booking_status' => 'cancelled',
+                'payment_status' => 'refund_pending',
+                'cancel_reason' => 'Khach yeu cau hoan tien',
+                'cancelled_by' => 'customer',
+            ]);
+    }
+
+    public function test_admin_cannot_mark_completed_booking_unpaid_or_pending_verification(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $booking = $this->makeBooking([
+            'status' => 'completed',
+            'payment_status' => 'paid',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        foreach (['unpaid', 'pending_verification'] as $status) {
+            $this->patchJson("/api/admin/bookings/{$booking->id}/payment", [
+                'payment_status' => $status,
+                'payment_method' => 'bank',
+            ])->assertUnprocessable()
+                ->assertJson(['message' => 'Khong the chuyen lich da hoan thanh ve chua thanh toan hoac cho xac minh.']);
+        }
+
+        $this->assertSame('paid', $booking->refresh()->payment_status);
+    }
+
+    public function test_admin_cannot_reopen_refunded_payment(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $booking = $this->makeBooking([
+            'status' => 'cancelled',
+            'payment_status' => 'refunded',
+            'payment_method' => 'bank',
+            'paid_at' => now(),
+            'cancelled_at' => now(),
+        ]);
+
+        Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'bank',
+            'amount' => 250000,
+            'status' => Payment::REFUNDED,
+            'paid_at' => now(),
+            'refund_amount' => 250000,
+            'refund_reason' => 'Already refunded',
+            'refunded_at' => now(),
+        ]);
+
+        $this->patchJson("/api/admin/bookings/{$booking->id}/payment", [
+            'payment_status' => 'paid',
+            'payment_method' => 'bank',
+        ])->assertUnprocessable()
+            ->assertJson(['message' => 'Khong the mo lai thanh toan da hoan tien.']);
+
+        $this->assertSame('refunded', $booking->refresh()->payment_status);
+        $this->assertSame(Payment::REFUNDED, $booking->payments()->latest('id')->first()->status);
+    }
+
+    public function test_admin_cannot_reopen_terminal_booking_statuses_or_complete_directly(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $completed = $this->makeBooking([
+            'status' => 'completed',
+            'payment_status' => 'paid',
+            'completed_at' => now(),
+        ]);
+        $cancelled = $this->makeBooking([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+        ], ['email' => 'cancelled@example.com']);
+        $confirmed = $this->makeBooking([
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+        ], ['email' => 'confirmed@example.com']);
+
+        $this->patchJson("/api/admin/bookings/{$completed->id}/status", ['status' => 'confirmed'])
+            ->assertUnprocessable();
+        $this->patchJson("/api/admin/bookings/{$cancelled->id}/status", ['status' => 'pending'])
+            ->assertUnprocessable();
+        $this->patchJson("/api/admin/bookings/{$confirmed->id}/status", ['status' => 'completed'])
+            ->assertUnprocessable();
+        $this->patchJson("/api/admin/bookings/{$confirmed->id}/status", ['status' => 'pending'])
+            ->assertUnprocessable();
+
+        $this->assertSame('completed', $completed->refresh()->status);
+        $this->assertSame('cancelled', $cancelled->refresh()->status);
+        $this->assertSame('confirmed', $confirmed->refresh()->status);
+    }
+
+    public function test_admin_cannot_cancel_completed_booking(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $booking = $this->makeBooking([
+            'status' => 'completed',
+            'payment_status' => 'paid',
+            'completed_at' => now(),
+        ]);
+
+        $this->patchJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Should still be blocked',
+        ])
+            ->assertUnprocessable();
+
+        $this->assertSame('completed', $booking->refresh()->status);
+    }
+
+    public function test_admin_cannot_cancel_completion_pending_booking_or_edit_locked_zoom(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $pendingCompletion = $this->makeBooking([
+            'status' => 'completion_pending',
+            'payment_status' => 'paid',
+            'completion_requested_at' => now(),
+            'completion_auto_complete_at' => now()->addHours(24),
+        ]);
+        $completed = $this->makeBooking([
+            'status' => 'completed',
+            'payment_status' => 'paid',
+            'completed_at' => now(),
+        ], ['email' => 'completed-zoom@example.com']);
+
+        $this->patchJson("/api/admin/bookings/{$pendingCompletion->id}/cancel", [
+            'cancel_reason' => 'Should still be blocked',
+        ])
+            ->assertUnprocessable();
+        $this->patchJson("/api/admin/bookings/{$pendingCompletion->id}/zoom", [
+            'zoom_link' => 'https://example.com/room',
+        ])->assertUnprocessable();
+        $this->patchJson("/api/admin/bookings/{$completed->id}/zoom", [
+            'zoom_link' => 'https://example.com/room',
+        ])->assertUnprocessable();
+
+        $this->assertSame('completion_pending', $pendingCompletion->refresh()->status);
+        $this->assertNull($pendingCompletion->zoom_link);
+        $this->assertNull($completed->refresh()->zoom_link);
     }
 
     private function makeBooking(array $bookingOverrides = [], array $userOverrides = []): Booking

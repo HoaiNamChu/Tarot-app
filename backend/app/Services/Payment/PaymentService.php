@@ -10,22 +10,22 @@ class PaymentService
 {
     public function create(Booking $booking, string $gateway): Payment
     {
-        if ($booking->payment_status === 'paid') {
-            throw new \Exception('Booking đã được thanh toán.');
+        if ($booking->payment_status !== 'unpaid') {
+            throw new \Exception('Booking khong con o trang thai cho thanh toan.');
         }
 
-        if ($booking->expires_at && $booking->expires_at->isPast()) {
+        if ($booking->status === 'pending' && $booking->expires_at && $booking->expires_at->isPast()) {
             throw new \Exception('Booking đã hết hạn thanh toán.');
         }
 
         return DB::transaction(function () use ($booking, $gateway) {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
 
-            if ($booking->payment_status === 'paid') {
-                throw new \Exception('Booking da duoc thanh toan.');
+            if ($booking->payment_status !== 'unpaid') {
+                throw new \Exception('Booking khong con o trang thai cho thanh toan.');
             }
 
-            if ($booking->expires_at && $booking->expires_at->isPast()) {
+            if ($booking->status === 'pending' && $booking->expires_at && $booking->expires_at->isPast()) {
                 throw new \Exception('Booking da het han thanh toan.');
             }
 

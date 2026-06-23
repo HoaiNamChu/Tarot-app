@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api.js';
 
-const ST = { pending: ['b-amber', 'Chờ duyệt'], confirmed: ['b-green', 'Đã xác nhận'], completed: ['b-violet', 'Hoàn thành'], cancelled: ['b-rose', 'Đã huỷ'] };
+const ST = { pending: ['b-amber', 'Chờ duyệt'], confirmed: ['b-green', 'Đã xác nhận'], completion_pending: ['b-cyan', 'Chờ khách xác nhận'], completed: ['b-violet', 'Hoàn thành'], cancelled: ['b-rose', 'Đã huỷ'] };
 const BUSY = [3, 7, 9, 12, 14, 17, 19, 21, 23, 26, 28];
 
 function MiniCalendar() {
@@ -53,23 +53,101 @@ function BarChart({ vals, labels, color }) {
   );
 }
 
+function ReadinessCard({ readiness, loading, onRefresh }) {
+  if (!readiness) {
+    return (
+      <div className="card">
+        <div className="card-head">
+          <div className="card-title">Production readiness</div>
+          <button type="button" className="card-act" onClick={onRefresh} disabled={loading}>{loading ? 'Dang kiem tra...' : 'Kiem tra lai'}</button>
+        </div>
+        <div className="card-body"><div className="readiness-empty">{loading ? 'Dang kiem tra cau hinh...' : 'Chua tai duoc trang thai cau hinh.'}</div></div>
+      </div>
+    );
+  }
+
+  const failed = (readiness.checks || []).filter(item => !item.ok).slice(0, 5);
+  const manual = readiness.manual_checks || [];
+
+  return (
+    <div className={`card readiness-card ${readiness.ready ? 'ready' : 'blocked'}`}>
+      <div className="card-head">
+        <div>
+          <div className="card-title">Production readiness</div>
+          <div className="card-meta">{readiness.ready ? 'San sang mo khach' : 'Can xu ly truoc go-live'}</div>
+        </div>
+        <div className="readiness-head-actions">
+          <button type="button" className="card-act" onClick={onRefresh} disabled={loading}>{loading ? 'Dang kiem tra...' : 'Kiem tra lai'}</button>
+          <span className={`readiness-score ${readiness.ready ? 'ok' : 'bad'}`}>{readiness.score || 0}%</span>
+        </div>
+      </div>
+      <div className="card-body">
+        <div className="readiness-summary">
+          <div><strong>{readiness.critical_failed || 0}</strong><span>Loi nghiem trong</span></div>
+          <div><strong>{readiness.warning_failed || 0}</strong><span>Can kiem tra</span></div>
+        </div>
+
+        {failed.length ? (
+          <div className="readiness-list">
+            {failed.map(item => (
+              <div key={item.key} className={`readiness-item ${item.severity}`}>
+                <span className="readiness-dot"></span>
+                <div>
+                  <div className="readiness-label">{item.label}</div>
+                  {item.detail && <div className="readiness-detail">{item.detail}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="readiness-ok">Cac check tu dong dang on.</div>
+        )}
+
+        <div className="readiness-manual">
+          {manual.slice(0, 3).map(item => <div key={item}>- {item}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [stats, setStats] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [readiness, setReadiness] = useState(null);
+  const [readinessLoading, setReadinessLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  async function refreshReadiness() {
+    setReadinessLoading(true);
+    try {
+      const data = await api.admin.readiness();
+      setReadiness(data);
+    } catch {
+      setReadiness(null);
+    } finally {
+      setReadinessLoading(false);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
       api.admin.stats(),
       api.admin.bookings.getAll(),
+      api.admin.readiness().catch(() => null),
     ])
-      .then(([statsData, bookingsData]) => {
+      .then(([statsData, bookingsData, readinessData]) => {
         setStats(statsData);
         setBookings(bookingsData || []);
+        setReadiness(readinessData);
       })
-      .catch(err => console.error('Dashboard fetch error:', err))
+      .catch(() => {
+        setStats(null);
+        setBookings([]);
+        setReadiness(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -86,7 +164,7 @@ export default function Dashboard() {
         <div className="stat-card c-gold"><div className="stat-icon">💰</div><div className="stat-lbl">Doanh thu tháng</div><div className="stat-val">{stats?.revenue || '0'}tr</div><div className="stat-delta"><span className="du">↑ {stats?.revenue_growth || '0'}%</span></div></div>
         <div className="stat-card c-violet"><div className="stat-icon">◷</div><div className="stat-lbl">Lịch đặt tháng</div><div className="stat-val">{stats?.total_bookings || '0'}</div><div className="stat-delta"><span className="du">↑ {stats?.new_bookings || '0'}</span> lịch mới</div></div>
         <div className="stat-card c-green"><div className="stat-icon">○</div><div className="stat-lbl">Khách hàng mới</div><div className="stat-val">{stats?.new_customers || '0'}</div><div className="stat-delta"><span className="du">↑ {stats?.customer_growth || '0'}%</span></div></div>
-        <div className="stat-card c-rose"><div className="stat-icon">◇</div><div className="stat-lbl">Đánh giá TB</div><div className="stat-val">{stats?.avg_rating || '0'}</div><div className="stat-delta"><span className="du">↑ {stats?.rating_change || '0'}</span> điểm</div></div>
+        <div className="stat-card c-rose"><div className="stat-icon">!</div><div className="stat-lbl">Cho hoan tien</div><div className="stat-val">{stats?.payments_refund_pending || '0'}</div><div className="stat-delta">{stats?.payments_refund_pending_amount_million || '0'}tr can xu ly</div></div>
       </div>
 
       <div className="g2">
@@ -124,6 +202,7 @@ export default function Dashboard() {
         </div>
 
         <div className="col-stack">
+          <ReadinessCard readiness={readiness} loading={readinessLoading} onRefresh={refreshReadiness} />
           <div className="card">
             <div className="card-head"><div className="card-title">Lịch tháng 5</div><span className="card-meta">{bookings.length} buổi</span></div>
             <div className="card-body"><MiniCalendar /></div>

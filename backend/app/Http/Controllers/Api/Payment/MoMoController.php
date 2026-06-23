@@ -66,7 +66,7 @@ class MoMoController extends Controller
                 return response()->json(['resultCode' => 0, 'message' => 'Already confirmed']);
             }
 
-            if ($payment->status === Payment::REFUNDED || $payment->booking->payment_status === 'refunded') {
+            if ($payment->status === Payment::REFUNDED || in_array($payment->booking->payment_status, ['refund_pending', 'refunded'], true)) {
                 return response()->json(['resultCode' => 0, 'message' => 'Already refunded']);
             }
 
@@ -110,4 +110,3 @@ class MoMoController extends Controller
         return $paymentId ? Payment::find($paymentId) : null;
     }
 }
-

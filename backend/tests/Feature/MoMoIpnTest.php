@@ -84,6 +84,27 @@ class MoMoIpnTest extends TestCase
         $this->assertSame('cancelled', $booking->status);
     }
 
+    public function test_late_success_ipn_does_not_reverse_refund_pending_booking(): void
+    {
+        [$booking, $payment] = $this->makePayment();
+        $booking->update([
+            'payment_status' => 'refund_pending',
+            'status' => 'confirmed',
+            'paid_at' => now()->subHour(),
+        ]);
+
+        $this->postJson('/api/payment/momo/ipn', $this->signedParams($payment))
+            ->assertOk()
+            ->assertJson([
+                'resultCode' => 0,
+                'message' => 'Already refunded',
+            ]);
+
+        $this->assertSame(Payment::PENDING, $payment->refresh()->status);
+        $this->assertSame('refund_pending', $booking->refresh()->payment_status);
+        $this->assertSame('confirmed', $booking->status);
+    }
+
     private function makePayment(): array
     {
         $user = User::factory()->create();

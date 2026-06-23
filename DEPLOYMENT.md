@@ -48,7 +48,8 @@ SESSION_DRIVER=database
 MAIL_MAILER=smtp
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_SCHEME=tls
+# Leave MAIL_SCHEME empty for port 587. Use MAIL_SCHEME=smtps only for port 465.
+MAIL_SCHEME=
 MAIL_FROM_ADDRESS=your-mail@example.com
 MAIL_FROM_NAME="Luna Arcana"
 
@@ -142,6 +143,7 @@ opcache.max_accelerated_files=20000
 
 - Open user app and admin app over HTTPS.
 - Check backend health: `curl https://api.example.com/api/health`.
+- Run production preflight: `php artisan app:preflight --production`.
 - Login as user and admin.
 - Create a booking.
 - Bank payment: submit proof, approve in admin, confirm audit log.

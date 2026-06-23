@@ -75,7 +75,8 @@ function PayModal({ booking, onClose }) {
     const selectedMethodAvailable = enabledMethods.some(m => m.id === method);
     const activeMethod = selectedMethodAvailable ? method : enabledMethods[0]?.id || '';
 
-    const transferContent = `${activeMethod === 'momo' ? bankInfo.momoPrefix : bankInfo.prefix} ${booking.id}`;
+    const bookingRef = booking.id || `BK-${String(booking.booking_id).padStart(4, '0')}`;
+    const transferContent = `${activeMethod === 'momo' ? bankInfo.momoPrefix : bankInfo.prefix} ${bookingRef}`;
     const amount = Number(booking.amount || 0);
     const qrUrl = bankInfo.bin && bankInfo.accountNumber
         ? `https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bin)}-${encodeURIComponent(bankInfo.accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankInfo.accountName || '')}`
@@ -116,7 +117,7 @@ function PayModal({ booking, onClose }) {
                 <div className={styles['pay-modal-header']}>
                     <div>
                         <div className={styles['pay-modal-title']}>Thanh toan lich dat</div>
-                        <div className={styles['pay-modal-sub']}>{booking.id}</div>
+                        <div className={styles['pay-modal-sub']}>{bookingRef}</div>
                     </div>
                     <button className={styles['pay-close']} onClick={onClose}>x</button>
                 </div>

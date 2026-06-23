@@ -100,6 +100,32 @@ class AvailabilityTest extends TestCase
         ], false);
     }
 
+    public function test_refund_pending_booking_blocks_slot_until_cancelled(): void
+    {
+        [$reader, $service, $user] = $this->seedReaderServiceAndUser();
+        $bookedAt = now()->addDays(2)->setTime(10, 10);
+
+        Booking::create([
+            'user_id' => $user->id,
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => $bookedAt,
+            'status' => 'pending',
+            'payment_status' => 'refund_pending',
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        $this->getJson("/api/readers/{$reader->id}/check-slot?booked_at=" . urlencode($bookedAt->copy()->setTime(10, 30)->toDateTimeString()) . "&service_id={$service->id}")
+            ->assertOk()
+            ->assertJsonPath('available', false);
+
+        $this->getJson("/api/readers/{$reader->id}/busy-slots?month=" . $bookedAt->format('Y-m'))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.start_time', '10:10')
+            ->assertJsonPath('0.end_time', '11:10');
+    }
+
     public function test_confirmed_unpaid_booking_still_blocks_slot_until_completed_or_cancelled(): void
     {
         [$reader, $service, $user] = $this->seedReaderServiceAndUser();
@@ -123,6 +149,61 @@ class AvailabilityTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonPath('0.start_time', '13:00');
+    }
+
+    public function test_active_pending_booking_blocks_same_and_overlapping_slots(): void
+    {
+        [$reader, $service, $firstUser] = $this->seedReaderServiceAndUser();
+        $secondUser = User::factory()->create();
+        $bookedAt = now()->addDays(2)->setTime(10, 10);
+
+        app(CreateBookingService::class)->execute($firstUser, [
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => $bookedAt->toDateTimeString(),
+        ], false);
+
+        foreach ([
+            $bookedAt->copy(),
+            $bookedAt->copy()->addMinutes(20),
+            $bookedAt->copy()->subMinutes(20),
+        ] as $overlappingStart) {
+            try {
+                app(CreateBookingService::class)->execute($secondUser, [
+                    'reader_id' => $reader->id,
+                    'service_id' => $service->id,
+                    'booked_at' => $overlappingStart->toDateTimeString(),
+                ], false);
+
+                $this->fail('Overlapping booking should be rejected.');
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+                $this->assertSame(422, $e->getStatusCode());
+            }
+        }
+
+        $this->assertSame(1, Booking::where('reader_id', $reader->id)->count());
+    }
+
+    public function test_back_to_back_booking_is_allowed_when_previous_slot_has_ended(): void
+    {
+        [$reader, $service, $firstUser] = $this->seedReaderServiceAndUser();
+        $secondUser = User::factory()->create();
+        $bookedAt = now()->addDays(2)->setTime(10, 10);
+
+        app(CreateBookingService::class)->execute($firstUser, [
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => $bookedAt->toDateTimeString(),
+        ], false);
+
+        $secondBooking = app(CreateBookingService::class)->execute($secondUser, [
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => $bookedAt->copy()->addMinutes($service->duration)->toDateTimeString(),
+        ], false);
+
+        $this->assertSame($reader->id, $secondBooking->reader_id);
+        $this->assertSame(2, Booking::where('reader_id', $reader->id)->count());
     }
 
     public function test_completed_and_cancelled_bookings_do_not_block_slots(): void

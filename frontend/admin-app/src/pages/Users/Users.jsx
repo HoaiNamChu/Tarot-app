@@ -88,8 +88,7 @@ export default function Users() {
     useEffect(() => {
         api.admin.users.getAll()
             .then(data => setUsers(data || []))
-            .catch(err => {
-                console.error('Users fetch error:', err);
+            .catch(() => {
                 showToast('Loi tai danh sach khach hang', 'error');
             })
             .finally(() => setLoading(false));

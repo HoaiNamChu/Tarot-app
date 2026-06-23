@@ -13,6 +13,7 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 php artisan storage:link
+php artisan app:preflight --production
 ```
 
 Required long-running processes:
@@ -31,6 +32,7 @@ The scheduler currently handles:
 
 - `bookings:expire` every minute.
 - `bookings:send-reminders` every 15 minutes.
+- `bookings:auto-complete` every 15 minutes.
 
 Health check after deploy:
 
@@ -45,16 +47,16 @@ Build and upload static files:
 ```bash
 cd frontend/user-app
 npm ci
-npm run build
+VITE_API_URL=https://api.your-domain.com npm run build
 
 cd ../admin-app
 npm ci
-npm run build
+VITE_API_URL=https://api.your-domain.com npm run build
 ```
 
 Set these before building:
 
-- `VITE_API_URL=https://api.your-domain.com`
+- `VITE_API_URL=https://api.your-domain.com` is required for production builds. Without it the app will fail fast instead of calling localhost.
 - User canonical/domain values in public SEO files if domain changes.
 
 ## 3. Production env checks
@@ -67,6 +69,7 @@ Backend `.env` must be set with real values:
 - `FRONTEND_URL=https://your-domain.com`
 - Database credentials.
 - `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`.
+- Do not set `MAIL_SCHEME=tls`; leave it empty for SMTP port 587 or use `MAIL_SCHEME=smtps` for port 465.
 - MoMo and VNPay credentials if enabled in admin settings.
 - Bank transfer settings if enabled.
 

@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\Reader;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\Booking\BookingConflictService;
+use App\Services\Booking\BookingCompletionService;
 use App\Services\Booking\CreateBookingService;
 use App\Services\Booking\ReaderAvailabilityService;
 use App\Services\NotificationService;
@@ -146,8 +148,8 @@ class ReaderDashboardController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
-            if (in_array($booking->status, ['cancelled', 'completed'], true)) {
-                return response()->json(['message' => 'Khong the sua lich da huy hoac da hoan thanh.'], 422);
+            if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
+                return response()->json(['message' => 'Chi co the sua lich dang cho xac nhan hoac da xac nhan.'], 422);
             }
 
             $service = Service::findOrFail($data['service_id'] ?? $booking->service_id);
@@ -172,11 +174,30 @@ class ReaderDashboardController extends Controller
 
     public function completeBooking(Request $request, $id)
     {
-        return $this->changeOwnBookingStatus($request, $id, 'completed', ['confirmed'], 'Da hoan thanh lich.');
+        $reader = $this->currentReader($request);
+        if (!$reader) {
+            return response()->json(['message' => 'Khong tim thay thong tin Reader.'], 404);
+        }
+
+        $booking = Booking::with(['user', 'reader.user', 'service'])
+            ->where('reader_id', $reader->id)
+            ->findOrFail($id);
+
+        app(BookingCompletionService::class)->requestCompletion($booking, 'reader');
+        app(NotificationService::class)->notifyAdmins('reader.booking.completion_requested', 'Reader bao da xem xong', ($reader->name ?? 'Reader') . ' da yeu cau xac nhan hoan thanh lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT), '/bookings', [
+            'booking_id' => $booking->id,
+            'reader' => $reader->name,
+        ]);
+
+        return response()->json(['message' => 'Da gui yeu cau khach xac nhan hoan thanh.']);
     }
 
     public function cancelBooking(Request $request, $id)
     {
+        $data = $request->validate([
+            'cancel_reason' => 'required|string|min:5|max:1000',
+        ]);
+
         $reader = $this->currentReader($request);
         if (!$reader) {
             return response()->json(['message' => 'Khong tim thay thong tin Reader.'], 404);
@@ -189,14 +210,21 @@ class ReaderDashboardController extends Controller
 
         $booking->update([
             'status' => 'cancelled',
+            'payment_status' => $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status,
             'cancelled_at' => now(),
+            'cancel_reason' => $data['cancel_reason'],
+            'cancelled_by' => 'reader',
         ]);
-        app(NotificationService::class)->notifyAdmins('reader.booking.cancelled', 'Reader huy lich', ($reader->name ?? 'Reader') . ' da huy lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT), '/bookings', [
+        app(NotificationService::class)->notifyAdmins('reader.booking.cancelled', 'Reader huy lich', ($reader->name ?? 'Reader') . ' da huy lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . '. Ly do: ' . $data['cancel_reason'], '/bookings', [
             'booking_id' => $booking->id,
             'reader' => $reader->name,
+            'cancel_reason' => $data['cancel_reason'],
         ]);
 
-        return response()->json(['message' => 'Da huy lich.']);
+        return response()->json([
+            'message' => 'Da huy lich.',
+            'payment_status' => $booking->refresh()->payment_status,
+        ]);
     }
 
     public function stats(Request $request)
@@ -307,26 +335,7 @@ class ReaderDashboardController extends Controller
     private function ensureSlotIsFree(int $readerId, int $ignoreBookingId, Service $service, Carbon $start): void
     {
         $reader = Reader::findOrFail($readerId);
-        app(ReaderAvailabilityService::class)->assertSlotAllowed($reader, $start, (int) $service->duration);
-
-        $end = $start->copy()->addMinutes($service->duration);
-        $existing = Booking::with('service')
-            ->where('reader_id', $readerId)
-            ->where('id', '!=', $ignoreBookingId)
-            ->whereDate('booked_at', $start->toDateString())
-            ->whereNotIn('status', ['cancelled', 'completed'])
-            ->lockForUpdate()
-            ->get();
-
-        $conflict = $existing->first(function (Booking $booking) use ($start, $end) {
-            $existStart = Carbon::parse($booking->booked_at);
-            $existEnd = $existStart->copy()->addMinutes($booking->service->duration);
-            return $start->lt($existEnd) && $end->gt($existStart);
-        });
-
-        if ($conflict) {
-            abort(422, 'Reader da co lich trong khung gio nay.');
-        }
+        app(BookingConflictService::class)->assertSlotIsFree($reader, $service, $start, $ignoreBookingId);
     }
 
     private function formatBooking(Booking $booking): array
@@ -345,9 +354,15 @@ class ReaderDashboardController extends Controller
             'booked_time' => $booking->booked_at->format('H:i'),
             'price' => number_format($booking->service->price, 0, ',', '.') . 'd',
             'status' => $booking->status,
+            'completion_requested_at' => $booking->completion_requested_at?->toIso8601String(),
+            'completion_auto_complete_at' => $booking->completion_auto_complete_at?->toIso8601String(),
+            'completion_confirmed_at' => $booking->completion_confirmed_at?->toIso8601String(),
+            'completion_disputed_at' => $booking->completion_disputed_at?->toIso8601String(),
             'payment_status' => $booking->payment_status,
             'zoom_link' => $booking->zoom_link,
             'note' => $booking->note,
+            'cancel_reason' => $booking->cancel_reason,
+            'cancelled_by' => $booking->cancelled_by,
         ];
     }
 }

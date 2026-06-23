@@ -24,7 +24,9 @@
 }
 
 html {
-  scroll-behavior: smooth
+  scroll-behavior: smooth;
+  scrollbar-color: rgba(200, 169, 110, .58) rgba(13, 11, 18, .7);
+  scrollbar-width: thin;
 }
 
 body {
@@ -32,6 +34,35 @@ body {
   background: var(--ink);
   color: var(--cream);
   overflow-x: hidden
+}
+
+* {
+  scrollbar-color: rgba(200, 169, 110, .58) rgba(13, 11, 18, .7);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(13, 11, 18, .72);
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 56px;
+  border: 2px solid rgba(13, 11, 18, .72);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(232, 201, 138, .82), rgba(148, 134, 170, .48));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(232, 201, 138, .98), rgba(200, 169, 110, .72));
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .section-label {

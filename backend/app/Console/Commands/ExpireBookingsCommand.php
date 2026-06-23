@@ -31,6 +31,8 @@ class ExpireBookingsCommand extends Command
                 $booking->update([
                     'status'       => 'cancelled',
                     'cancelled_at' => now(),
+                    'cancel_reason' => 'Tu dong huy do het han thanh toan.',
+                    'cancelled_by' => 'system',
                 ]);
 
                 $booking->load(['user', 'reader.user', 'service']);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api/index.js';
 import { useToast } from '../../contexts/ToastContext.jsx';
+import { Modal } from '../../components/Modal/Modal.jsx';
 
 const EMPTY_BOOKING_FORM = {
     customer_name: '',
@@ -15,6 +16,7 @@ const EMPTY_BOOKING_FORM = {
 const STATUS_LABELS = {
     pending: 'Cho xac nhan',
     confirmed: 'Da xac nhan',
+    completion_pending: 'Cho khach xac nhan',
     completed: 'Hoan thanh',
     cancelled: 'Da huy',
 };
@@ -23,6 +25,7 @@ const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 function StatusBadge({ status }) {
     const cls = status === 'confirmed' ? 'b-green'
+        : status === 'completion_pending' ? 'b-cyan'
         : status === 'completed' ? 'b-gold'
             : status === 'cancelled' ? 'b-rose'
                 : 'b-amber';
@@ -52,6 +55,8 @@ export default function ReaderPortal() {
     const [bookingForm, setBookingForm] = useState(EMPTY_BOOKING_FORM);
     const [editing, setEditing] = useState(null);
     const [availability, setAvailability] = useState([]);
+    const [cancelTarget, setCancelTarget] = useState(null);
+    const [cancelReason, setCancelReason] = useState('');
 
     const loadAll = useCallback(async () => {
         try {
@@ -154,16 +159,43 @@ export default function ReaderPortal() {
     }
 
     async function runAction(row, action) {
+        if (action === 'cancel') {
+            setCancelTarget(row);
+            setCancelReason('');
+            return;
+        }
+
         const key = `${action}-${row.id}`;
         setActionLoading(key);
         try {
             if (action === 'confirm') await api.reader.confirmBooking(row.id);
             if (action === 'complete') await api.reader.completeBooking(row.id);
-            if (action === 'cancel') await api.reader.cancelBooking(row.id);
             await refreshBookings();
             showToast('Da cap nhat lich');
         } catch (err) {
             showToast(err.message || 'Loi cap nhat lich', 'error');
+        } finally {
+            setActionLoading('');
+        }
+    }
+
+    async function confirmCancelBooking() {
+        if (!cancelTarget) return;
+        if (cancelReason.trim().length < 5) {
+            showToast('Vui long nhap ly do huy it nhat 5 ky tu.', 'error');
+            return;
+        }
+
+        const key = `cancel-${cancelTarget.id}`;
+        setActionLoading(key);
+        try {
+            await api.reader.cancelBooking(cancelTarget.id, { cancel_reason: cancelReason.trim() });
+            setCancelTarget(null);
+            setCancelReason('');
+            await refreshBookings();
+            showToast('Da huy lich');
+        } catch (err) {
+            showToast(err.message || 'Loi huy lich', 'error');
         } finally {
             setActionLoading('');
         }
@@ -226,6 +258,7 @@ export default function ReaderPortal() {
                                 ['all', 'Tat ca'],
                                 ['pending', 'Cho'],
                                 ['confirmed', 'Da xac nhan'],
+                                ['completion_pending', 'Cho khach xac nhan'],
                                 ['completed', 'Hoan thanh'],
                             ].map(([key, label]) => (
                                 <button key={key} type="button" className={`tab-btn${filter === key ? ' active' : ''}`} onClick={() => setFilter(key)}>{label}</button>
@@ -247,7 +280,7 @@ export default function ReaderPortal() {
                                         <td>
                                             <div className="act-row">
                                                 {row.status === 'pending' && <button type="button" className="ic-btn ok" title="Xac nhan" disabled={actionLoading === `confirm-${row.id}`} onClick={() => runAction(row, 'confirm')}>✓</button>}
-                                                {row.status === 'confirmed' && <button type="button" className="ic-btn ok" title="Hoan thanh" disabled={actionLoading === `complete-${row.id}`} onClick={() => runAction(row, 'complete')}>✓✓</button>}
+                                                {row.status === 'confirmed' && row.payment_status === 'paid' && <button type="button" className="ic-btn ok" title="Hoan thanh" disabled={actionLoading === `complete-${row.id}`} onClick={() => runAction(row, 'complete')}>&#10003;&#10003;</button>}
                                                 {['pending', 'confirmed'].includes(row.status) && <button type="button" className="ic-btn" title="Sua" onClick={() => startEdit(row)}>✎</button>}
                                                 {['pending', 'confirmed'].includes(row.status) && <button type="button" className="ic-btn del" title="Huy" disabled={actionLoading === `cancel-${row.id}`} onClick={() => runAction(row, 'cancel')}>×</button>}
                                             </div>
@@ -339,6 +372,33 @@ export default function ReaderPortal() {
                     </form>
                 </div>
             </div>
+
+            <Modal
+                isOpen={Boolean(cancelTarget)}
+                onClose={() => { setCancelTarget(null); setCancelReason(''); }}
+                title={`Huy lich ${cancelTarget?.code || ''}`}
+                size="sm"
+                footer={(
+                    <>
+                        <button type="button" className="btn-secondary" onClick={() => { setCancelTarget(null); setCancelReason(''); }}>Dong</button>
+                        <button type="button" className="btn-danger" onClick={confirmCancelBooking} disabled={actionLoading === `cancel-${cancelTarget?.id}`}>
+                            {actionLoading === `cancel-${cancelTarget?.id}` ? 'Dang huy...' : 'Huy lich'}
+                        </button>
+                    </>
+                )}
+            >
+                <div style={{ display: 'grid', gap: '.75rem' }}>
+                    <p className="modal-text">Vui long nhap ly do huy de admin va khach nam duoc tinh huong.</p>
+                    <textarea
+                        className="input"
+                        value={cancelReason}
+                        onChange={(event) => setCancelReason(event.target.value)}
+                        placeholder="Nhap ly do huy lich"
+                        rows={4}
+                        style={{ minHeight: 96, resize: 'vertical' }}
+                    />
+                </div>
+            </Modal>
         </div>
     );
 }

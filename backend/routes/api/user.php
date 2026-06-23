@@ -10,6 +10,8 @@ Route::middleware(['auth:sanctum', 'throttle:80,1'])->group(function () {
         Route::get('/', [BookingController::class, 'index']);
         Route::post('/', [BookingController::class, 'store']);
         Route::patch('/{id}/cancel', [BookingController::class, 'cancel']);
+        Route::patch('/{id}/confirm-completion', [BookingController::class, 'confirmCompletion']);
+        Route::patch('/{id}/dispute-completion', [BookingController::class, 'disputeCompletion']);
         Route::patch('/{id}/pay', [BookingController::class, 'pay']);
         Route::get('/reviews', [BookingController::class, 'getReviews']);
         Route::post('/{id}/reviews', [BookingController::class, 'storeReview']);
@@ -19,4 +21,3 @@ Route::middleware(['auth:sanctum', 'throttle:80,1'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/profile/password', [ProfileController::class, 'changePassword']);
 });
-

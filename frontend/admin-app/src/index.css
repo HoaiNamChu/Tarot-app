@@ -38,6 +38,8 @@
 
 html {
     height: 100%;
+    scrollbar-color: rgba(200, 169, 110, .58) rgba(10, 10, 15, .86);
+    scrollbar-width: thin;
 }
 
 body {
@@ -46,6 +48,35 @@ body {
     background: var(--bg);
     color: var(--text);
     overflow: hidden;
+}
+
+* {
+    scrollbar-color: rgba(200, 169, 110, .58) rgba(10, 10, 15, .86);
+    scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: rgba(10, 10, 15, .86);
+}
+
+*::-webkit-scrollbar-thumb {
+    min-height: 56px;
+    border: 2px solid rgba(10, 10, 15, .86);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(200, 169, 110, .82), rgba(124, 106, 247, .48));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(232, 201, 138, .96), rgba(124, 106, 247, .68));
+}
+
+*::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 #root {
@@ -1195,6 +1226,145 @@ body {
 .prog-fill {
     height: 100%;
     border-radius: 2px
+}
+
+.readiness-card.ready {
+    border-color: rgba(74, 222, 128, .22)
+}
+
+.readiness-card.blocked {
+    border-color: rgba(251, 191, 36, .22)
+}
+
+.readiness-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 46px;
+    height: 30px;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    border: 1px solid var(--border)
+}
+
+.readiness-head-actions {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    flex-wrap: wrap;
+    justify-content: flex-end
+}
+
+.readiness-score.ok {
+    color: var(--green);
+    background: var(--green-dim);
+    border-color: rgba(74, 222, 128, .22)
+}
+
+.readiness-score.bad {
+    color: var(--amber);
+    background: var(--amber-dim);
+    border-color: rgba(251, 191, 36, .22)
+}
+
+.readiness-summary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: .55rem;
+    margin-bottom: .85rem
+}
+
+.readiness-summary div {
+    padding: .65rem;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px
+}
+
+.readiness-summary strong {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.25rem;
+    color: var(--text);
+    line-height: 1
+}
+
+.readiness-summary span {
+    display: block;
+    margin-top: .35rem;
+    color: var(--text-3);
+    font-size: .62rem;
+    letter-spacing: .08em;
+    text-transform: uppercase
+}
+
+.readiness-list {
+    display: grid;
+    gap: .55rem
+}
+
+.readiness-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .55rem;
+    padding: .62rem .7rem;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px
+}
+
+.readiness-dot {
+    width: 7px;
+    height: 7px;
+    margin-top: .32rem;
+    border-radius: 50%;
+    background: var(--amber);
+    flex-shrink: 0
+}
+
+.readiness-item.critical .readiness-dot {
+    background: var(--rose)
+}
+
+.readiness-label {
+    color: var(--text-2);
+    font-size: .76rem;
+    line-height: 1.35
+}
+
+.readiness-detail {
+    margin-top: .18rem;
+    color: var(--text-3);
+    font-family: 'DM Mono', monospace;
+    font-size: .62rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere
+}
+
+.readiness-ok,
+.readiness-empty {
+    color: var(--green);
+    font-size: .78rem;
+    padding: .7rem;
+    background: var(--green-dim);
+    border: 1px solid rgba(74, 222, 128, .2);
+    border-radius: 4px
+}
+
+.readiness-empty {
+    color: var(--text-3);
+    background: var(--bg-3);
+    border-color: var(--border)
+}
+
+.readiness-manual {
+    margin-top: .85rem;
+    display: grid;
+    gap: .3rem;
+    color: var(--text-3);
+    font-size: .68rem;
+    line-height: 1.45
 }
 
 /* TABS */

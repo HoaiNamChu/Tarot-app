@@ -81,6 +81,23 @@
     margin-bottom: 1.2rem;
 }
 
+.form-state,
+.form-state-error {
+    margin-bottom: 1rem;
+    padding: .75rem 1rem;
+    font-size: .78rem;
+    line-height: 1.5;
+    border: 1px solid var(--border-2);
+    background: rgba(255, 255, 255, .04);
+    color: var(--muted-2);
+}
+
+.form-state-error {
+    border-color: rgba(212, 102, 138, .45);
+    background: rgba(212, 102, 138, .08);
+    color: var(--cream);
+}
+
 .fr2 {
     display: grid;
     grid-template-columns: 1fr 1fr;

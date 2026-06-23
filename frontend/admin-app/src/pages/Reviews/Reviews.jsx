@@ -31,8 +31,7 @@ export default function Reviews() {
     useEffect(() => {
         api.admin.reviews.getAll()
             .then(data => setReviews(data || []))
-            .catch(err => {
-                console.error('Reviews fetch error:', err);
+            .catch(() => {
                 showToast('Loi tai danh gia', 'error');
             })
             .finally(() => setLoading(false));

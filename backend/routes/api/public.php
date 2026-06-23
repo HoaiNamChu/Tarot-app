@@ -17,6 +17,7 @@ Route::middleware('throttle:150,1')->group(function () {
     Route::get('/readers', [ReaderController::class, 'index']);
     Route::get('/services', [ServiceController::class, 'index']);
     Route::get('/settings/payment', [SettingController::class, 'payment']);
+    Route::get('/policies/{type}', [SettingController::class, 'policy']);
 });
 
 Route::prefix('readers')->middleware('throttle:80,1')->group(function () {

@@ -28,9 +28,9 @@ export default function AddBookingModal({ isOpen, onClose, initialCustomer = nul
                     setReaders(readersData || []);
                     setServices(servicesData || []);
                 })
-                .catch(err => console.error('Modal fetch error:', err));
+                .catch(() => showToast('Khong tai duoc danh sach reader/dich vu', 'error'));
         }
-    }, [isOpen]);
+    }, [isOpen, showToast]);
 
     if (!isOpen) return null;
 

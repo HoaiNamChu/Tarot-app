@@ -92,7 +92,7 @@ class VNPayController extends Controller
                 return response()->json(['RspCode' => '00', 'Message' => 'Already confirmed']);
             }
 
-            if ($payment->status === Payment::REFUNDED || $payment->booking->payment_status === 'refunded') {
+            if ($payment->status === Payment::REFUNDED || in_array($payment->booking->payment_status, ['refund_pending', 'refunded'], true)) {
                 return response()->json(['RspCode' => '00', 'Message' => 'Already refunded']);
             }
 

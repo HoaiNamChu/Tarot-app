@@ -61,7 +61,7 @@ export function ConfirmModal({
                 </>
             )}
         >
-            <p className="modal-text">{message}</p>
+            {typeof message === 'string' ? <p className="modal-text">{message}</p> : message}
         </Modal>
     );
 }

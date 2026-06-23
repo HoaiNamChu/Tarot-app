@@ -12,3 +12,4 @@ Schedule::command(
 )->everyMinute();
 
 Schedule::command('bookings:send-reminders')->everyFifteenMinutes();
+Schedule::command('bookings:auto-complete')->everyFifteenMinutes();

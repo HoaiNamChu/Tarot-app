@@ -59,6 +59,15 @@
     gap: .75rem;
 }
 
+.nav-auth-placeholder {
+    width: 186px;
+    height: 34px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .12), rgba(255, 255, 255, .05));
+    background-size: 220% 100%;
+    animation: navShimmer 1.2s ease-in-out infinite;
+}
+
 .nav-cta {
     font-size: .75rem;
     letter-spacing: .12em;
@@ -211,6 +220,16 @@
 
 .desktopOnly {
     display: flex;
+}
+
+@keyframes navShimmer {
+    from {
+        background-position: 120% 0;
+    }
+
+    to {
+        background-position: -120% 0;
+    }
 }
 
 @media (max-width: 768px) {

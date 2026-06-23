@@ -6,6 +6,7 @@ import { ConfirmModal, InfoRow, Modal } from '../../components/Modal/Modal.jsx';
 const ST = {
     pending: ['b-amber', 'Cho duyet'],
     confirmed: ['b-green', 'Da xac nhan'],
+    completion_pending: ['b-cyan', 'Cho khach xac nhan'],
     completed: ['b-violet', 'Hoan thanh'],
     cancelled: ['b-rose', 'Da huy'],
 };
@@ -14,6 +15,7 @@ const PAYMENT_ST = {
     unpaid: ['b-amber', 'Chua thanh toan'],
     pending_verification: ['b-amber', 'Cho xac minh'],
     paid: ['b-green', 'Da thanh toan'],
+    refund_pending: ['b-cyan', 'Cho hoan tien'],
     refunded: ['b-rose', 'Da hoan'],
 };
 
@@ -21,6 +23,7 @@ const TABS = [
     ['all', 'Tat ca'],
     ['pending', 'Cho duyet'],
     ['confirmed', 'Xac nhan'],
+    ['completion_pending', 'Cho khach xac nhan'],
     ['completed', 'Hoan thanh'],
     ['cancelled', 'Da huy'],
 ];
@@ -35,11 +38,11 @@ const STATUS_ACTIONS = {
         apiAction: 'confirm',
     },
     complete: {
-        title: 'Hoan thanh lich',
-        message: (b) => `Danh dau lich ${b?.code || ''} la da hoan thanh?`,
-        confirmLabel: 'Hoan thanh',
-        nextStatus: 'completed',
-        success: 'Da hoan thanh lich',
+        title: 'Gui xac nhan hoan thanh',
+        message: (b) => `Gui yeu cau khach xac nhan lich ${b?.code || ''} da xem xong?`,
+        confirmLabel: 'Gui xac nhan',
+        nextStatus: 'completion_pending',
+        success: 'Da gui yeu cau xac nhan',
         apiAction: 'complete',
     },
     cancel: {
@@ -51,27 +54,35 @@ const STATUS_ACTIONS = {
         apiAction: 'cancel',
         danger: true,
     },
-    undoPending: {
-        title: 'Hoan tac ve cho duyet',
-        message: (b) => `Dua lich ${b?.code || ''} ve trang thai cho duyet?`,
-        confirmLabel: 'Hoan tac',
-        nextStatus: 'pending',
-        success: 'Da hoan tac ve cho duyet',
-        undo: true,
-    },
-    undoConfirmed: {
-        title: 'Hoan tac ve da xac nhan',
-        message: (b) => `Dua lich ${b?.code || ''} ve trang thai da xac nhan?`,
-        confirmLabel: 'Hoan tac',
-        nextStatus: 'confirmed',
-        success: 'Da hoan tac ve da xac nhan',
-        undo: true,
-    },
 };
 
 function Badge({ status, map = ST }) {
     const item = map[status] || ['b-amber', status || '-'];
     return <span className={`badge ${item[0]}`}><span className="badge-dot"></span>{item[1]}</span>;
+}
+
+function isTerminalBooking(booking) {
+    return ['completed', 'cancelled'].includes(booking?.status);
+}
+
+function paymentStatusOptions(booking) {
+    if (booking?.payment_status === 'refunded') {
+        return [['refunded', 'Da hoan tien']];
+    }
+
+    const options = [
+        ['unpaid', 'Chua thanh toan'],
+        ['pending_verification', 'Cho xac minh'],
+        ['paid', 'Da thanh toan'],
+        ['refund_pending', 'Cho hoan tien'],
+        ['refunded', 'Da hoan tien'],
+    ];
+
+    if (booking?.status === 'completed') {
+        return options.filter(([value]) => !['unpaid', 'pending_verification'].includes(value));
+    }
+
+    return options;
 }
 
 export default function Bookings() {
@@ -83,6 +94,7 @@ export default function Bookings() {
     const [modal, setModal] = useState(null);
     const [statusAction, setStatusAction] = useState(null);
     const [zoomLink, setZoomLink] = useState('');
+    const [cancelReason, setCancelReason] = useState('');
     const [paymentForm, setPaymentForm] = useState({
         payment_status: 'paid',
         payment_method: 'bank',
@@ -96,7 +108,6 @@ export default function Bookings() {
         api.admin.bookings.getAll()
             .then(data => setBookings(data || []))
             .catch(() => {
-                console.error('Bookings fetch error');
                 showToast('Loi tai du lieu lich dat', 'error');
             })
             .finally(() => setLoading(false));
@@ -143,6 +154,7 @@ export default function Bookings() {
     function openStatusModal(actionKey, booking) {
         setSelected(booking);
         setStatusAction(actionKey);
+        setCancelReason('');
         setModal('status');
     }
 
@@ -150,15 +162,21 @@ export default function Bookings() {
         if (!selected) return;
         const action = STATUS_ACTIONS[statusAction];
         if (!action) return;
+        if (statusAction === 'cancel' && cancelReason.trim().length < 5) {
+            showToast('Vui long nhap ly do huy it nhat 5 ky tu.', 'error');
+            return;
+        }
 
         try {
-            if (action.undo) {
-                await api.admin.bookings.updateStatus(selected.id, action.nextStatus);
-            } else {
-                await api.admin.bookings[action.apiAction](selected.id);
-            }
+            await api.admin.bookings[action.apiAction](
+                selected.id,
+                statusAction === 'cancel' ? { cancel_reason: cancelReason.trim() } : undefined
+            );
 
-            patchBooking(selected.id, { status: action.nextStatus });
+            patchBooking(selected.id, {
+                status: action.nextStatus,
+                ...(statusAction === 'cancel' ? { cancel_reason: cancelReason.trim(), cancelled_by: 'admin' } : {}),
+            });
             showToast(action.success);
             closeModal();
         } catch (err) {
@@ -199,7 +217,7 @@ export default function Bookings() {
             <div className="stats-row">
                 <div className="stat-card c-amber"><div className="stat-icon">⏳</div><div className="stat-lbl">Cho xac nhan</div><div className="stat-val">{bookings.filter(b => b.status === 'pending').length}</div><div className="stat-delta">Can xu ly</div></div>
                 <div className="stat-card c-green"><div className="stat-icon">✓</div><div className="stat-lbl">Da xac nhan</div><div className="stat-val">{bookings.filter(b => b.status === 'confirmed').length}</div><div className="stat-delta">{bookings.filter(b => b.status === 'completed').length} da hoan thanh</div></div>
-                <div className="stat-card c-violet"><div className="stat-icon">◷</div><div className="stat-lbl">Tong lich</div><div className="stat-val">{bookings.length}</div><div className="stat-delta">Tat ca booking</div></div>
+                <div className="stat-card c-cyan"><div className="stat-icon">?</div><div className="stat-lbl">Cho khach xac nhan</div><div className="stat-val">{bookings.filter(b => b.status === 'completion_pending').length}</div><div className="stat-delta">Theo doi sau buoi xem</div></div>
                 <div className="stat-card c-rose"><div className="stat-icon">✕</div><div className="stat-lbl">Da huy</div><div className="stat-val">{bookings.filter(b => b.status === 'cancelled').length}</div><div className="stat-delta">{bookings.length > 0 ? ((bookings.filter(b => b.status === 'cancelled').length / bookings.length) * 100).toFixed(1) : '0'}% ty le huy</div></div>
             </div>
 
@@ -227,14 +245,11 @@ export default function Bookings() {
                                     <td>
                                         <div className="act-row">
                                             {b.status === 'pending' && <button type="button" className="ic-btn ok" title="Xac nhan" onClick={() => openStatusModal('confirm', b)}>✓</button>}
-                                            {b.status === 'confirmed' && <button type="button" className="ic-btn ok" title="Hoan thanh" onClick={() => openStatusModal('complete', b)}>◇</button>}
-                                            {b.status === 'confirmed' && <button type="button" className="ic-btn" title="Hoan tac ve cho duyet" onClick={() => openStatusModal('undoPending', b)}>↺</button>}
-                                            {b.status === 'completed' && <button type="button" className="ic-btn" title="Hoan tac ve da xac nhan" onClick={() => openStatusModal('undoConfirmed', b)}>↺</button>}
-                                            {b.status === 'cancelled' && <button type="button" className="ic-btn" title="Khoi phuc ve cho duyet" onClick={() => openStatusModal('undoPending', b)}>↺</button>}
+                                            {b.status === 'confirmed' && b.payment_status === 'paid' && <button type="button" className="ic-btn ok" title="Hoan thanh" onClick={() => openStatusModal('complete', b)}>&#10003;&#10003;</button>}
                                             <button type="button" className="ic-btn" title="Chi tiet" onClick={() => openModal('detail', b)}>⊙</button>
-                                            <button type="button" className="ic-btn" title="Zoom" onClick={() => openModal('zoom', b)}>◷</button>
+                                            {!isTerminalBooking(b) && <button type="button" className="ic-btn" title="Zoom" onClick={() => openModal('zoom', b)}>◷</button>}
                                             <button type="button" className="ic-btn" title="Thanh toan" onClick={() => openModal('payment', b)}>$</button>
-                                            {b.status !== 'cancelled' && b.status !== 'completed' && <button type="button" className="ic-btn del" title="Huy" onClick={() => openStatusModal('cancel', b)}>✕</button>}
+                                            {['pending', 'confirmed'].includes(b.status) && <button type="button" className="ic-btn del" title="Huy" onClick={() => openStatusModal('cancel', b)}>✕</button>}
                                         </div>
                                     </td>
                                 </tr>
@@ -253,7 +268,7 @@ export default function Bookings() {
                     <>
                         <button type="button" className="btn-secondary" onClick={closeModal}>Dong</button>
                         <button type="button" className="btn-primary" onClick={() => setModal('payment')}>Thanh toan</button>
-                        <button type="button" className="btn-primary" onClick={() => setModal('zoom')}>Zoom</button>
+                        {!isTerminalBooking(selected) && <button type="button" className="btn-primary" onClick={() => setModal('zoom')}>Zoom</button>}
                     </>
                 )}
             >
@@ -272,6 +287,15 @@ export default function Bookings() {
                             <InfoRow label="Thoi gian" value={selected.booked_at} />
                             <InfoRow label="Trang thai"><Badge status={selected.status} /></InfoRow>
                             <InfoRow label="Thanh toan"><Badge status={selected.payment_status || 'unpaid'} map={PAYMENT_ST} /></InfoRow>
+                            {selected.payment_status === 'refund_pending' && (
+                                <InfoRow label="Can xu ly" value="Dang cho admin hoan tien cho khach." />
+                            )}
+                            {selected.status === 'cancelled' && (
+                                <>
+                                    <InfoRow label="Nguoi huy" value={selected.cancelled_by || '-'} />
+                                    <InfoRow label="Ly do huy" value={selected.cancel_reason || '-'} />
+                                </>
+                            )}
                             {selected.payment_status === 'refunded' && (
                                 <>
                                     <InfoRow label="So tien hoan" value={selected.refund_amount ? Number(selected.refund_amount).toLocaleString('vi-VN') + 'd' : '-'} />
@@ -309,10 +333,9 @@ export default function Bookings() {
                         <div>
                             <label className="label">Trang thai</label>
                             <select className="sel" value={paymentForm.payment_status} onChange={(e) => setPaymentForm({ ...paymentForm, payment_status: e.target.value })}>
-                                <option value="unpaid">Chua thanh toan</option>
-                                <option value="pending_verification">Cho xac minh</option>
-                                <option value="paid">Da thanh toan</option>
-                                <option value="refunded">Da hoan tien</option>
+                                {paymentStatusOptions(selected).map(([value, label]) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -358,7 +381,19 @@ export default function Bookings() {
                 isOpen={modal === 'status'}
                 onClose={closeModal}
                 title={STATUS_ACTIONS[statusAction]?.title}
-                message={STATUS_ACTIONS[statusAction]?.message(selected)}
+                message={statusAction === 'cancel' ? (
+                    <div style={{ display: 'grid', gap: '.75rem' }}>
+                        <p className="modal-text">{STATUS_ACTIONS[statusAction]?.message(selected)}</p>
+                        <textarea
+                            className="input"
+                            value={cancelReason}
+                            onChange={(event) => setCancelReason(event.target.value)}
+                            placeholder="Nhap ly do huy lich"
+                            rows={4}
+                            style={{ minHeight: 96, resize: 'vertical' }}
+                        />
+                    </div>
+                ) : STATUS_ACTIONS[statusAction]?.message(selected)}
                 confirmLabel={STATUS_ACTIONS[statusAction]?.confirmLabel}
                 danger={STATUS_ACTIONS[statusAction]?.danger}
                 onConfirm={handleStatus}
