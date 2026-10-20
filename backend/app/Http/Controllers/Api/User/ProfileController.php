@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class ProfileController extends Controller
 {
@@ -33,7 +34,7 @@ class ProfileController extends Controller
     {
         $request->validate([
             'current_password' => 'required',
-            'new_password'     => 'required|string|min:6|confirmed',
+            'new_password'     => 'required|string|min:8|confirmed',
         ], [
             'current_password.required' => 'Vui lòng nhập mật khẩu hiện tại.',
             'new_password.required'     => 'Vui lòng nhập mật khẩu mới.',
@@ -45,9 +46,17 @@ class ProfileController extends Controller
             return response()->json(['message' => 'Mật khẩu hiện tại không đúng.'], 422);
         }
 
-        $request->user()->update([
+        $user = $request->user();
+        $user->update([
             'password' => Hash::make($request->new_password),
         ]);
+
+        $currentToken = $user->currentAccessToken();
+        if ($currentToken instanceof PersonalAccessToken) {
+            $user->tokens()->where('id', '!=', $currentToken->id)->delete();
+        } else {
+            $user->tokens()->delete();
+        }
 
         return response()->json(['message' => 'Đã đổi mật khẩu thành công.']);
     }

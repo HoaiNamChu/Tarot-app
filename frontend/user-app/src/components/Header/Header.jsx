@@ -30,13 +30,13 @@ function Header() {
             <span className={styles['hero-card-icon']}>Heart</span>
         </div>
 
-        <div className={styles.badge}>Nang luong dang hoi tu</div>
-        <div className={styles['hero-eyebrow']}>Tarot · Chiem tinh · Huyen hoc</div>
-        <h1>Lang nghe<br /><em>vu tru</em><br />noi gi</h1>
-        <p className={styles['hero-sub']}>Moi la bai la mot thong diep. Moi buoi doc la mot hanh trinh kham pha noi tam va dinh huong tuong lai.</p>
+        <div className={styles.badge}>Năng lượng đang hội tụ</div>
+        <div className={styles['hero-eyebrow']}>Tarot · Chiêm tinh · Huyền học</div>
+        <h1>Lắng nghe<br /><em>vũ trụ</em><br />nói gì</h1>
+        <p className={styles['hero-sub']}>Mỗi lá bài là một thông điệp. Mỗi buổi đọc là một hành trình khám phá nội tâm và định hướng tương lai.</p>
         <div className={styles['hero-btns']}>
-            <a href="#booking" className={styles['btn-primary']}>Dat lich ngay</a>
-            <a href="#free-reading" className={styles['btn-ghost']}>Rut bai mien phi</a>
+            <a href="#booking" className={styles['btn-primary']}>Đặt lịch ngay</a>
+            <a href="#free-reading" className={styles['btn-ghost']}>Rút bài miễn phí</a>
         </div>
         <div className={styles['scroll-hint']}>
             <span>Scroll</span>

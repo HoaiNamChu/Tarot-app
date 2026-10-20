@@ -555,7 +555,7 @@ class AdminController extends Controller
             'avatar'   => 'nullable|string',
             'email'    => 'required|email|unique:users,email',
             'phone'    => 'nullable|string',
-            'password' => 'nullable|string|min:6',
+            'password' => 'nullable|string|min:8',
         ]);
 
         $reader = DB::transaction(function () use ($request) {
@@ -721,7 +721,7 @@ class AdminController extends Controller
             'name'            => 'required|string|max:255',
             'email'           => 'required|email|unique:users,email',
             'phone'           => 'nullable|string|max:50',
-            'password'        => 'nullable|string|min:6',
+            'password'        => 'nullable|string|min:8',
             'customer_type'   => 'nullable|in:active,vip,new,inactive',
             'customer_status' => 'nullable|in:active,inactive',
             'internal_note'   => 'nullable|string',
@@ -749,7 +749,7 @@ class AdminController extends Controller
             'name'            => 'required|string|max:255',
             'email'           => 'required|email|unique:users,email,' . $user->id,
             'phone'           => 'nullable|string|max:50',
-            'password'        => 'nullable|string|min:6',
+            'password'        => 'nullable|string|min:8',
             'customer_type'   => 'nullable|in:active,vip,new,inactive',
             'customer_status' => 'nullable|in:active,inactive',
             'internal_note'   => 'nullable|string',
@@ -766,6 +766,7 @@ class AdminController extends Controller
 
         if (!empty($data['password'])) {
             $user->password = $data['password'];
+            $user->tokens()->delete();
         }
 
         $user->save();

@@ -16,10 +16,7 @@ class VNPayController extends Controller
 
     public function handleReturn(Request $request)
     {
-        $payment = Payment::find($request->vnp_TxnRef);
-        $query = [
-            'booking_id' => $payment?->booking_id,
-        ];
+        $query = [];
 
         // FIX: verify HMAC trước khi xử lý, giống IPN
         // Không verify thì bất kỳ ai cũng giả được thanh toán thành công
@@ -27,6 +24,9 @@ class VNPayController extends Controller
             $query['status'] = 'invalid-signature';
             return redirect(rtrim(config('tarot.frontend_url'), '/') . '/payment-result?' . http_build_query($query));
         }
+
+        $payment = Payment::find($request->vnp_TxnRef);
+        $query['booking_id'] = $payment?->booking_id;
 
         try {
             $this->processPayment($request);
@@ -60,7 +60,14 @@ class VNPayController extends Controller
         $inputData      = $request->except(['vnp_SecureHash', 'vnp_SecureHashType']);
         $vnp_SecureHash = $request->input('vnp_SecureHash', '');
 
-        if (blank($vnp_HashSecret) || blank($vnp_SecureHash)) {
+        if (
+            blank($vnp_HashSecret) ||
+            blank($this->gatewayConfig->vnpay()['tmn_code']) ||
+            !is_string($vnp_SecureHash) ||
+            $vnp_SecureHash === '' ||
+            collect($inputData)->contains(fn($value) => !is_scalar($value)) ||
+            !hash_equals((string) $this->gatewayConfig->vnpay()['tmn_code'], (string) $request->input('vnp_TmnCode', ''))
+        ) {
             return false;
         }
 
@@ -100,7 +107,7 @@ class VNPayController extends Controller
                 return response()->json(['RspCode' => '00', 'Message' => 'Booking is closed']);
             }
 
-            if ($request->vnp_ResponseCode === '00') {
+            if ($request->vnp_ResponseCode === '00' && $request->vnp_TransactionStatus === '00') {
                 $payment->update([
                     'status'           => Payment::SUCCESS,
                     'transaction_code' => $request->vnp_TransactionNo,

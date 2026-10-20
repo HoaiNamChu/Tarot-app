@@ -18,7 +18,10 @@ class VNPayIpnTest extends TestCase
     {
         parent::setUp();
 
-        config(['vnpay.hash_secret' => 'test-secret']);
+        config([
+            'vnpay.hash_secret' => 'test-secret',
+            'vnpay.tmn_code' => 'VNP_TEST',
+        ]);
     }
 
     public function test_it_marks_booking_paid_when_ipn_signature_and_amount_are_valid(): void
@@ -219,7 +222,9 @@ class VNPayIpnTest extends TestCase
         $params = array_merge([
             'vnp_TxnRef' => (string) $payment->id,
             'vnp_Amount' => (string) ($payment->amount * 100),
+            'vnp_TmnCode' => 'VNP_TEST',
             'vnp_ResponseCode' => '00',
+            'vnp_TransactionStatus' => '00',
             'vnp_TransactionNo' => 'VNP123456',
             'vnp_BankCode' => 'NCB',
             'vnp_PayDate' => now()->format('YmdHis'),

@@ -6,17 +6,18 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [admin, setAdmin] = useState(null);
-    const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('admin_token')));
+    const [loading, setLoading] = useState(() => Boolean(sessionStorage.getItem('admin_token')));
 
     useEffect(() => {
-        const token = localStorage.getItem('admin_token');
+        localStorage.removeItem('admin_token');
+        const token = sessionStorage.getItem('admin_token');
         if (!token) return;
         api.auth.me()
             .then(user => {
                 if (!['admin', 'reader'].includes(user.role)) throw new Error('Không có quyền');
                 setAdmin(user);
             })
-            .catch(() => localStorage.removeItem('admin_token'))
+            .catch(() => sessionStorage.removeItem('admin_token'))
             .finally(() => setLoading(false));
     }, []);
 
@@ -25,13 +26,13 @@ export function AuthProvider({ children }) {
         if (!['admin', 'reader'].includes(data.user.role)) {
             throw new Error('Tài khoản không có quyền truy cập.');
         }
-        localStorage.setItem('admin_token', data.token);
+        sessionStorage.setItem('admin_token', data.token);
         setAdmin(data.user);
     }
 
     function logout() {
         api.auth.logout().catch(() => { });
-        localStorage.removeItem('admin_token');
+        sessionStorage.removeItem('admin_token');
         setAdmin(null);
     }
 

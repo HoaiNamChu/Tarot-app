@@ -13,7 +13,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'))
 const PolicyPage = lazy(() => import('./pages/PolicyPage.jsx'))
 
 function PageLoader() {
-  return <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Dang tai...</div>
+  return <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Đang tải...</div>
 }
 
 function App() {

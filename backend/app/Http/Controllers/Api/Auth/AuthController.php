@@ -23,7 +23,7 @@ class AuthController extends Controller
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users',
-            'password' => 'required|string|min:6',
+            'password' => 'required|string|min:8',
         ], [
             'name.required'     => 'Vui lòng nhập họ tên.',
             'email.required'    => 'Vui lòng nhập email.',
@@ -132,30 +132,37 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email|exists:users,email',
             'token' => 'required|string',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $record = DB::table('password_reset_tokens')
-            ->where('email', $request->email)
-            ->first();
+        $reset = DB::transaction(function () use ($request) {
+            $record = DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->lockForUpdate()
+                ->first();
 
-        if (
-            !$record ||
-            !Hash::check($request->token, $record->token) ||
-            now()->diffInMinutes(\Carbon\Carbon::parse($record->created_at)) > 60
-        ) {
+            if (
+                !$record ||
+                !Hash::check($request->token, $record->token) ||
+                now()->diffInMinutes(\Carbon\Carbon::parse($record->created_at)) > 60
+            ) {
+                return false;
+            }
+
+            $user = User::where('email', $request->email)->lockForUpdate()->firstOrFail();
+            $user->update(['password' => Hash::make($request->password)]);
+            $user->tokens()->delete();
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+            return true;
+        });
+
+        if (!$reset) {
             return response()->json(['message' => 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.'], 422);
         }
 
-        User::where('email', $request->email)->update([
-            'password' => Hash::make($request->password),
-        ]);
-
-        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
-
         return response()->json(['message' => 'Đã đặt lại mật khẩu thành công.']);
     }
-
     private function authUser(User $user): array
     {
         return [

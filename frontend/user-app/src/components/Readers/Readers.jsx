@@ -32,14 +32,14 @@ function Readers() {
   }, []);
 
   function selectReader(reader) {
-    showToast(`Da chon reader: ${reader.name}`);
+    showToast(`Đã chọn reader: ${reader.name}`);
     navigate(`/?reader=${reader.id}`);
   }
 
   return (
     <section id="readers" className={styles['readers-section']}>
-      <div className="sl">Ket noi tam hon</div>
-      <h2 className="section-title">Gap go <em>Readers</em></h2>
+      <div className="sl">Kết nối tâm hồn</div>
+      <h2 className="section-title">Gặp gỡ <em>Readers</em></h2>
 
       <div className={styles['readers-grid']}>
         {status === 'loading' && [1, 2, 3, 4].map(item => (
@@ -53,15 +53,15 @@ function Readers() {
 
         {status === 'error' && (
           <div className={styles['state-card']}>
-            <h3>Chua tai duoc danh sach reader</h3>
-            <p>Vui long thu lai sau it phut hoac lien he ho tro neu loi keo dai.</p>
+            <h3>Chưa tải được danh sách reader</h3>
+            <p>Vui lòng thử lại sau ít phút hoặc liên hệ hỗ trợ nếu lỗi kéo dài.</p>
           </div>
         )}
 
         {status === 'ready' && readers.length === 0 && (
           <div className={styles['state-card']}>
-            <h3>Chua co reader dang mo lich</h3>
-            <p>Admin can bat reader truoc khi khach co the dat lich.</p>
+            <h3>Chưa có reader đang mở lịch</h3>
+            <p>Quản trị viên cần bật reader trước khi khách có thể đặt lịch.</p>
           </div>
         )}
 

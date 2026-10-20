@@ -139,12 +139,12 @@ function Booking() {
     }
 
     if (!form.reader_id || !form.service_id || !form.booked_at) {
-      showToast('Vui long dien day du thong tin.');
+      showToast('Vui lòng điền đầy đủ thông tin.');
       return;
     }
 
     if (slotStatus === 'busy') {
-      showToast('Khung gio nay da co nguoi dat. Vui long chon gio khac.');
+      showToast('Khung giờ này đã có người đặt. Vui lòng chọn giờ khác.');
       return;
     }
 
@@ -157,7 +157,7 @@ function Booking() {
         note: form.note,
       });
 
-      showToast('Dat lich thanh cong! Chung toi se xac nhan qua email.');
+      showToast('Đặt lịch thành công! Chúng tôi sẽ xác nhận qua email.');
       await refreshBookings();
 
       if (form.reader_id) {
@@ -185,17 +185,17 @@ function Booking() {
         <div>
           <div className="sl">Mo canh cua</div>
           <h2 className="section-title" style={{ fontSize: '2.5rem' }}>
-            Dat Lich <em>Doc Bai</em>
+            Đặt Lịch <em>Đọc Bài</em>
           </h2>
           <p style={{ color: 'var(--muted-2)', fontFamily: "'Cormorant Garamond', serif", fontSize: '1.1rem', marginTop: '1rem' }}>
-            Hay chon reader, goi dich vu va thoi gian phu hop de chung ta ket noi.
+            Hãy chọn reader, gói dịch vụ và thời gian phù hợp để chúng ta kết nối.
           </p>
 
           <div className={styles['booking-steps']}>
             {[
-              { num: '01', title: 'Chon dich vu & Reader', desc: 'Chon chuyen gia phu hop voi van de ban dang quan tam.' },
-              { num: '02', title: 'Chon thoi gian', desc: 'Danh sach lich ban ben duoi giup ban tranh cac khung gio da duoc giu.' },
-              { num: '03', title: 'Thanh toan & xac nhan', desc: 'Sau khi thanh toan, thong tin buoi hen se duoc gui qua email.' },
+              { num: '01', title: 'Chọn dịch vụ & Reader', desc: 'Chọn chuyên gia phù hợp với vấn đề bạn đang quan tâm.' },
+              { num: '02', title: 'Chọn thời gian', desc: 'Danh sách lịch bận bên dưới giúp bạn tránh các khung giờ đã được giữ.' },
+              { num: '03', title: 'Thanh toán & xác nhận', desc: 'Sau khi thanh toán, thông tin buổi hẹn sẽ được gửi qua email.' },
             ].map(step => (
               <div key={step.num} className={styles.bstep}>
                 <div className={styles['bstep-num']}>{step.num}</div>
@@ -210,7 +210,7 @@ function Booking() {
           {selectedReader && busySlots.length > 0 && (
             <div className={styles['busy-slots']}>
               <div className={styles['busy-slots-title']}>
-                Lich ban cua {selectedReader.avatar} {selectedReader.name} {busySlotMonth ? `trong thang ${busySlotMonth}` : 'sap toi'}
+                Lịch bận của {selectedReader.avatar} {selectedReader.name} {busySlotMonth ? `trong tháng ${busySlotMonth}` : 'sắp tới'}
               </div>
               <div className={styles['busy-slots-list']}>
                 {busySlots.map((slot, i) => (
@@ -232,16 +232,16 @@ function Booking() {
           {!isLoggedIn && (
             <div className={styles['booking-lock']}>
               <div className={styles['lock-icon']}>🔐</div>
-              <div className={styles['lock-title']}>Dang nhap de dat lich</div>
+              <div className={styles['lock-title']}>Đăng nhập để đặt lịch</div>
               <p className={styles['lock-desc']}>
-                Tao tai khoan mien phi de dat lich voi Tarot Reader va quan ly buoi hen cua ban.
+                Tạo tài khoản miễn phí để đặt lịch với Tarot Reader và quản lý buổi hẹn của bạn.
               </p>
               <div className={styles['lock-btns']}>
                 <button className="btn-primary" style={{ fontSize: '.72rem', padding: '.8rem 1.6rem' }} onClick={() => openModal('register')}>
-                  Dang ky mien phi
+                  Đăng ký miễn phí
                 </button>
                 <button className="btn-ghost" style={{ fontSize: '.72rem', padding: '.8rem 1.4rem' }} onClick={() => openModal('login')}>
-                  Da co tai khoan
+                  Đã có tài khoản
                 </button>
               </div>
             </div>
@@ -250,29 +250,29 @@ function Booking() {
           <div className={styles['booking-form']}>
             {loadStatus === 'loading' && (
               <div className={styles['form-state']} role="status">
-                Dang tai goi dich vu va reader...
+                Đang tải gói dịch vụ và reader...
               </div>
             )}
 
             {loadStatus === 'error' && (
               <div className={styles['form-state-error']} role="alert">
-                Chua tai duoc du lieu dat lich. Vui long thu lai sau it phut.
+                Chưa tải được dữ liệu đặt lịch. Vui lòng thử lại sau ít phút.
               </div>
             )}
 
             {loadStatus === 'ready' && !hasRequiredOptions && (
               <div className={styles['form-state-error']} role="alert">
-                Hien chua co dich vu hoac reader dang mo lich.
+                Hiện chưa có dịch vụ hoặc reader đang mở lịch.
               </div>
             )}
 
             <div className={styles.fr}>
               <label className={styles.fl}>Dich Vu</label>
               <select className={styles.fsel} name="service_id" value={form.service_id} onChange={handleChange} disabled={loadStatus !== 'ready'}>
-                <option value="">-- Chon dich vu --</option>
+                <option value="">-- Chọn dịch vụ --</option>
                 {services.map(s => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.duration} phut) - {s.price.toLocaleString('vi-VN')}d
+                    {s.name} ({s.duration} phút) - {s.price.toLocaleString('vi-VN')}₫
                   </option>
                 ))}
               </select>
@@ -281,7 +281,7 @@ function Booking() {
             <div className={styles.fr}>
               <label className={styles.fl}>Reader</label>
               <select className={styles.fsel} name="reader_id" value={form.reader_id} onChange={handleChange} disabled={loadStatus !== 'ready'}>
-                <option value="">-- Chon Reader --</option>
+                <option value="">-- Chọn Reader --</option>
                 {readers.map(r => (
                   <option key={r.id} value={r.id}>
                     {r.avatar} {r.name} - {r.title}
@@ -293,9 +293,9 @@ function Booking() {
             <div className={styles.fr}>
               <label className={styles.fl}>
                 Ngay gio muon hen
-                {slotStatus === 'checking' && <span className={styles['slot-checking']}>  Dang kiem tra...</span>}
+                {slotStatus === 'checking' && <span className={styles['slot-checking']}>  Đang kiểm tra...</span>}
                 {slotStatus === 'available' && <span className={styles['slot-available']}>  Con trong</span>}
-                {slotStatus === 'busy' && <span className={styles['slot-busy']}>  Da co nguoi dat</span>}
+                {slotStatus === 'busy' && <span className={styles['slot-busy']}>  Đã có người đặt</span>}
               </label>
               <input
                 type="datetime-local"
@@ -323,7 +323,7 @@ function Booking() {
               onClick={submitBooking}
               disabled={submitDisabled}
             >
-              {loading ? 'Dang xu ly...' : loadStatus === 'loading' ? 'Dang tai du lieu...' : 'Xac Nhan Dat Lich'}
+              {loading ? 'Đang xử lý...' : loadStatus === 'loading' ? 'Đang tải dữ liệu...' : 'Xác Nhận Đặt Lịch'}
             </button>
           </div>
         </div>

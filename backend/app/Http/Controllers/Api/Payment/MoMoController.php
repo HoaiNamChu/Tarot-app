@@ -12,9 +12,7 @@ class MoMoController extends Controller
 {
     public function handleReturn(Request $request, MoMoService $service)
     {
-        $payment = $this->findPayment($request, $service);
         $query = [
-            'booking_id' => $payment?->booking_id,
             'gateway' => 'momo',
         ];
 
@@ -22,6 +20,9 @@ class MoMoController extends Controller
             $query['status'] = 'invalid-signature';
             return redirect(rtrim(config('tarot.frontend_url'), '/') . '/payment-result?' . http_build_query($query));
         }
+
+        $payment = $this->findPayment($request, $service);
+        $query['booking_id'] = $payment?->booking_id;
 
         try {
             $response = $this->processPayment($request, $service);

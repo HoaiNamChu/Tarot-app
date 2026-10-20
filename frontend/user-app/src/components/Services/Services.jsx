@@ -32,15 +32,15 @@ function Services() {
   }, []);
 
   function selectService(svc) {
-    showToast(`Da chon dich vu: ${svc.name}`);
+    showToast(`Đã chọn dịch vụ: ${svc.name}`);
     navigate(`/?service=${svc.id}`);
   }
 
   return (
     <section id="services" className={styles.services}>
       <div className={styles['services-header']}>
-        <div className={styles.sl}>Trai nghiem danh cho ban</div>
-        <h2 className="section-title">Cac goi <em>giai ma</em></h2>
+        <div className={styles.sl}>Trải nghiệm dành cho bạn</div>
+        <h2 className="section-title">Các gói <em>giải mã</em></h2>
       </div>
 
       <div className={styles['services-grid']}>
@@ -58,15 +58,15 @@ function Services() {
 
         {status === 'error' && (
           <div className={styles['state-card']}>
-            <h3>Chua tai duoc goi dich vu</h3>
-            <p>Vui long thu lai sau it phut hoac lien he ho tro neu loi keo dai.</p>
+            <h3>Chưa tải được gói dịch vụ</h3>
+            <p>Vui lòng thử lại sau ít phút hoặc liên hệ hỗ trợ nếu lỗi kéo dài.</p>
           </div>
         )}
 
         {status === 'ready' && services.length === 0 && (
           <div className={styles['state-card']}>
-            <h3>Chua co goi dich vu dang mo</h3>
-            <p>Admin can bat it nhat mot goi dich vu de khach co the dat lich.</p>
+            <h3>Chưa có gói dịch vụ đang mở</h3>
+            <p>Quản trị viên cần bật ít nhất một gói dịch vụ để khách có thể đặt lịch.</p>
           </div>
         )}
 
@@ -78,9 +78,9 @@ function Services() {
             <h3 className={styles['svc-name']}>{svc.name}</h3>
             <p className={styles['svc-desc']}>{svc.description}</p>
             <div className={styles['svc-meta']}>
-              <span className={styles['svc-dur']}>{svc.duration} phut</span>
+              <span className={styles['svc-dur']}>{svc.duration} phút</span>
               <div className={styles['svc-price']}>
-                {Number(svc.price || 0).toLocaleString('vi-VN')}d <span>/buoi</span>
+                {Number(svc.price || 0).toLocaleString('vi-VN')}₫ <span>/buổi</span>
               </div>
             </div>
           </button>

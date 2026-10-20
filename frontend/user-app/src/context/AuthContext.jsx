@@ -7,6 +7,12 @@ import { useToast } from './ToastContext.jsx';
 const AuthContext = createContext(null);
 
 function readStoredUser() {
+  if (!sessionStorage.getItem('la_token')) {
+    localStorage.removeItem('la_token');
+    localStorage.removeItem('la_session');
+    return null;
+  }
+
   try {
     const stored = localStorage.getItem('la_session');
     return stored ? JSON.parse(stored) : null;
@@ -17,12 +23,13 @@ function readStoredUser() {
 }
 
 function clearStoredSession() {
+  sessionStorage.removeItem('la_token');
   localStorage.removeItem('la_token');
   localStorage.removeItem('la_session');
 }
 
 export function AuthProvider({ children }) {
-  const hasToken = Boolean(localStorage.getItem('la_token'));
+  const hasToken = Boolean(sessionStorage.getItem('la_token'));
   const [loading, setLoading] = useState(() => hasToken && !readStoredUser());
   const [currentUser, setCurrentUser] = useState(() => readStoredUser());
   const [modalOpen, setModalOpen] = useState(false);
@@ -48,7 +55,7 @@ export function AuthProvider({ children }) {
       setBookings(bookingsData);
       setReviews(reviewsData);
     } catch {
-      const message = 'Khong the dong bo lich dat. Vui long thu lai sau.';
+      const message = 'Không thể đồng bộ lịch đặt. Vui lòng thử lại sau.';
       setBookingsError(message);
       if (!options.silent) showToast(message);
     } finally {
@@ -57,12 +64,12 @@ export function AuthProvider({ children }) {
   }, [currentUser, showToast]);
 
   useEffect(() => {
-    const token = localStorage.getItem('la_token');
+    const token = sessionStorage.getItem('la_token');
     if (!token) return;
 
     api.me()
       .then((user) => {
-        if (localStorage.getItem('la_token') !== token) return;
+        if (sessionStorage.getItem('la_token') !== token) return;
         setCurrentUser(user);
         localStorage.setItem('la_session', JSON.stringify(user));
       })
@@ -94,20 +101,20 @@ export function AuthProvider({ children }) {
 
   async function handleLogin(email, password) {
     const data = await api.login(email, password);
-    localStorage.setItem('la_token', data.token);
+    sessionStorage.setItem('la_token', data.token);
     localStorage.setItem('la_session', JSON.stringify(data.user));
     setCurrentUser(data.user);
   }
 
   async function handleRegister(name, email, password) {
     const data = await api.register(name, email, password);
-    localStorage.setItem('la_token', data.token);
+    sessionStorage.setItem('la_token', data.token);
     localStorage.setItem('la_session', JSON.stringify(data.user));
     setCurrentUser(data.user);
   }
 
   async function handleLogout() {
-    const token = localStorage.getItem('la_token');
+    const token = sessionStorage.getItem('la_token');
     clearStoredSession();
     setCurrentUser(null);
     setBookings([]);
@@ -127,10 +134,10 @@ export function AuthProvider({ children }) {
       setBookings(prev => prev.map(booking => (
         booking.booking_id === id ? { ...booking, status: 'cancelled', payment_status: res.payment_status || booking.payment_status, paid: (res.payment_status || booking.payment_status) === 'paid', cancel_reason: cancelReason || booking.cancel_reason, cancelled_by: 'customer' } : booking
       )));
-      showToast('Da huy lich dat ' + id);
+      showToast('Đã hủy lịch đặt ' + id);
       await refreshBookings({ silent: true });
     } catch (error) {
-      showToast(error.message || 'Huy lich that bai, vui long thu lai sau.');
+      showToast(error.message || 'Hủy lịch thất bại, vui lòng thử lại sau.');
     }
   }
 
@@ -161,7 +168,7 @@ export function AuthProvider({ children }) {
     setBookings(prev => prev.map(booking => (
       booking.booking_id === id ? { ...booking, ...(res.booking || {}) } : booking
     )));
-    showToast(res.message || 'Da xac nhan buoi xem hoan thanh.');
+    showToast(res.message || 'Đã xác nhận buổi xem hoàn thành.');
     await refreshBookings({ silent: true });
   }
 
@@ -170,7 +177,7 @@ export function AuthProvider({ children }) {
     setBookings(prev => prev.map(booking => (
       booking.booking_id === id ? { ...booking, ...(res.booking || {}) } : booking
     )));
-    showToast(res.message || 'Da bao admin kiem tra lai buoi xem.');
+    showToast(res.message || 'Đã báo quản trị viên kiểm tra lại buổi xem.');
     await refreshBookings({ silent: true });
   }
 

@@ -10,24 +10,35 @@ import styles from './Dashboard.module.css';
 import { api } from '../services/api.js';
 
 const STATUS_LABEL = {
-    pending: 'Cho thanh toan',
-    confirmed: 'Da xac nhan',
-    completion_pending: 'Cho ban xac nhan',
-    completed: 'Hoan thanh',
-    cancelled: 'Da huy',
-    expired: 'Het han thanh toan',
+    pending: 'Chờ thanh toán',
+    confirmed: 'Đã xác nhận',
+    completion_pending: 'Chờ bạn xác nhận',
+    completed: 'Hoàn thành',
+    cancelled: 'Đã hủy',
+    expired: 'Hết hạn thanh toán',
 };
 
 const PAYMENT_LABEL = {
-    paid: 'Da thanh toan',
-    pending_verification: 'Cho xac minh',
-    refund_pending: 'Cho hoan tien',
-    refunded: 'Da hoan tien',
-    unpaid: 'Chua thanh toan',
+    paid: 'Đã thanh toán',
+    pending_verification: 'Chờ xác minh',
+    refund_pending: 'Chờ hoàn tiền',
+    refunded: 'Đã hoàn tiền',
+    unpaid: 'Chưa thanh toán',
 };
 
 function bookingCode(booking) {
     return `BK-${String(booking.booking_id).padStart(4, '0')}`;
+}
+
+function openMeetingLink(link) {
+    try {
+        const url = new URL(link);
+        if (url.protocol === 'https:') {
+            window.open(url.href, '_blank', 'noopener,noreferrer');
+        }
+    } catch {
+        // Ignore malformed or non-HTTPS meeting links.
+    }
 }
 
 function paymentLabel(booking) {
@@ -35,23 +46,23 @@ function paymentLabel(booking) {
     if (booking.payment_status === 'pending_verification') return PAYMENT_LABEL.pending_verification;
     if (booking.payment_status === 'refund_pending') return PAYMENT_LABEL.refund_pending;
     if (booking.payment_status === 'refunded') return PAYMENT_LABEL.refunded;
-    if (booking.latest_payment_status === 'pending') return 'Dang cho cong thanh toan';
-    if (booking.latest_payment_status === 'failed') return 'Thanh toan that bai';
-    if (booking.latest_payment_status === 'expired') return 'Het han thanh toan';
+    if (booking.latest_payment_status === 'pending') return 'Đang chờ cổng thanh toán';
+    if (booking.latest_payment_status === 'failed') return 'Thanh toán thất bại';
+    if (booking.latest_payment_status === 'expired') return 'Hết hạn thanh toán';
     return PAYMENT_LABEL.unpaid;
 }
 
 function nextActionText(booking) {
-    if (booking.status === 'cancelled' && booking.payment_status === 'refund_pending') return 'Lich da huy. Khoan thanh toan dang cho admin hoan tien.';
-    if (booking.status === 'cancelled') return 'Lich da huy. Ban co the dat lai neu van can tu van.';
-    if (booking.status === 'completed') return 'Buoi doc da hoan thanh. Ban co the gui danh gia neu chua danh gia.';
-    if (booking.status === 'completion_pending') return 'Reader da danh dau buoi xem da dien ra. Vui long xac nhan neu ban da xem, hoac bao chua xem de admin kiem tra lai.';
-    if (booking.payment_status === 'pending_verification') return 'Thanh toan dang cho admin xac minh. Ban khong can thanh toan lai luc nay.';
-    if (booking.payment_status !== 'paid') return 'Vui long hoan tat thanh toan truoc khi het han giu lich.';
-    if (booking.status === 'pending') return 'Thanh toan da ghi nhan. Lich dang cho xac nhan.';
-    if (booking.status === 'confirmed' && !booking.zoom_link) return 'Lich da xac nhan. Link phong hop se duoc cap nhat truoc buoi hen.';
-    if (booking.status === 'confirmed' && booking.zoom_link) return 'Lich da san sang. Ban co the vao phong hop theo link da cap nhat.';
-    return 'Theo doi trang thai lich trong dashboard cua ban.';
+    if (booking.status === 'cancelled' && booking.payment_status === 'refund_pending') return 'Lịch đã hủy. Khoản thanh toán đang chờ quản trị viên hoàn tiền.';
+    if (booking.status === 'cancelled') return 'Lịch đã hủy. Bạn có thể đặt lại nếu vẫn cần tư vấn.';
+    if (booking.status === 'completed') return 'Buổi đọc đã hoàn thành. Bạn có thể gửi đánh giá nếu chưa đánh giá.';
+    if (booking.status === 'completion_pending') return 'Reader đã đánh dấu buổi xem đã diễn ra. Vui lòng xác nhận nếu bạn đã xem, hoặc báo chưa xem để quản trị viên kiểm tra lại.';
+    if (booking.payment_status === 'pending_verification') return 'Thanh toán đang chờ quản trị viên xác minh. Bạn không cần thanh toán lại lúc này.';
+    if (booking.payment_status !== 'paid') return 'Vui lòng hoàn tất thanh toán trước khi hết hạn giữ lịch.';
+    if (booking.status === 'pending') return 'Đã ghi nhận thanh toán. Lịch đang chờ xác nhận.';
+    if (booking.status === 'confirmed' && !booking.zoom_link) return 'Lịch đã xác nhận. Đường dẫn phòng họp sẽ được cập nhật trước buổi hẹn.';
+    if (booking.status === 'confirmed' && booking.zoom_link) return 'Lịch đã sẵn sàng. Bạn có thể vào phòng họp theo đường dẫn đã cập nhật.';
+    return 'Theo dõi trạng thái lịch trong trang cá nhân của bạn.';
 }
 
 function timeline(booking) {
@@ -63,17 +74,17 @@ function timeline(booking) {
     const confirmed = booking.status === 'confirmed' || completionPending || completed;
 
     return [
-        { label: 'Tao lich', state: 'done' },
+        { label: 'Tạo lịch', state: 'done' },
         {
-            label: paid ? 'Da thanh toan' : pendingVerification ? 'Cho xac minh' : 'Cho thanh toan',
+            label: paid ? 'Đã thanh toán' : pendingVerification ? 'Chờ xác minh' : 'Chờ thanh toán',
             state: paid || pendingVerification ? 'done' : cancelled ? 'muted' : 'active',
         },
         {
-            label: confirmed ? 'Da xac nhan' : cancelled ? 'Da huy' : 'Cho xac nhan',
+            label: confirmed ? 'Đã xác nhận' : cancelled ? 'Đã hủy' : 'Chờ xác nhận',
             state: confirmed ? 'done' : cancelled ? 'muted' : paid || pendingVerification ? 'active' : 'pending',
         },
         {
-            label: completed ? 'Hoan thanh' : completionPending ? 'Cho xac nhan' : booking.zoom_link ? 'Co link hop' : 'Cho link hop',
+            label: completed ? 'Hoàn thành' : completionPending ? 'Chờ xác nhận' : booking.zoom_link ? 'Có đường dẫn họp' : 'Chờ đường dẫn họp',
             state: completed ? 'done' : completionPending ? 'active' : booking.zoom_link ? 'active' : cancelled ? 'muted' : 'pending',
         },
     ];
@@ -123,13 +134,13 @@ function Dashboard() {
             <div className={styles.page}>
                 <div className={styles['ud-nav']}>
                     <div className={styles['ud-logo']}>Luna Arcana</div>
-                    <button className={styles['ud-back']} onClick={() => navigate('/')}>Ve trang chu</button>
+                    <button className={styles['ud-back']} onClick={() => navigate('/')}>Về trang chủ</button>
                 </div>
                 <div className={styles['dashboard-loading']}>
                     <div className={styles['dashboard-loading-card']}>
                         <div className={styles['loading-mark']}></div>
-                        <h1>Dang tai tai khoan</h1>
-                        <p>Chung toi dang dong bo lich dat va thong tin dang nhap cua ban.</p>
+                        <h1>Đang tải tài khoản</h1>
+                        <p>Chúng tôi đang đồng bộ lịch đặt và thông tin đăng nhập của bạn.</p>
                     </div>
                 </div>
             </div>
@@ -222,25 +233,25 @@ function Dashboard() {
                         <div className={`${styles['detail-modal']} ${styles['compact-modal']}`}>
                             <div className={styles['detail-head']}>
                                 <div>
-                                    <div className={styles['detail-kicker']}>Huy lich</div>
+                                    <div className={styles['detail-kicker']}>Hủy lịch</div>
                                     <h2>{bookingCode(cancelTarget)}</h2>
                                 </div>
                                 <button className={styles['detail-close']} onClick={closeCancelModal} aria-label="Dong">x</button>
                             </div>
                             <div className={styles['confirm-body']}>
-                                <p>Ban co chac muon huy lich nay khong? Neu co ly do, hay ghi lai de reader va admin nam duoc tinh huong.</p>
+                                <p>Bạn có chắc muốn hủy lịch này không? Nếu có lý do, hãy ghi lại để reader và quản trị viên nắm được tình huống.</p>
                                 <textarea
                                     className={styles['modal-textarea']}
                                     value={cancelReason}
                                     onChange={event => setCancelReason(event.target.value)}
-                                    placeholder="Ly do huy lich (tuy chon)"
+                                    placeholder="Lý do hủy lịch (tùy chọn)"
                                     rows={4}
                                 />
                             </div>
                             <div className={styles['detail-actions']}>
                                 <button className={styles['bk-btn-ghost']} onClick={closeCancelModal} disabled={actionLoading.startsWith('cancel-')}>Dong</button>
                                 <button className={styles['bk-btn-review']} onClick={handleCancelBooking} disabled={actionLoading === `cancel-${cancelTarget.booking_id}`}>
-                                    {actionLoading === `cancel-${cancelTarget.booking_id}` ? 'Dang huy...' : 'Xac nhan huy'}
+                                    {actionLoading === `cancel-${cancelTarget.booking_id}` ? 'Đang hủy...' : 'Xác nhận hủy'}
                                 </button>
                             </div>
                         </div>
@@ -252,18 +263,18 @@ function Dashboard() {
                         <div className={`${styles['detail-modal']} ${styles['compact-modal']}`}>
                             <div className={styles['detail-head']}>
                                 <div>
-                                    <div className={styles['detail-kicker']}>Bao chua xem</div>
+                                    <div className={styles['detail-kicker']}>Báo chưa xem</div>
                                     <h2>{bookingCode(disputeTarget)}</h2>
                                 </div>
                                 <button className={styles['detail-close']} onClick={closeDisputeModal} aria-label="Dong">x</button>
                             </div>
                             <div className={styles['confirm-body']}>
-                                <p>Ban xac nhan chua xem buoi nay? Lich se duoc dua ve trang thai da xac nhan de admin kiem tra lai voi reader.</p>
+                                <p>Bạn xác nhận chưa xem buổi này? Lịch sẽ được chuyển về trạng thái đã xác nhận để quản trị viên kiểm tra lại với reader.</p>
                             </div>
                             <div className={styles['detail-actions']}>
                                 <button className={styles['bk-btn-ghost']} onClick={closeDisputeModal} disabled={actionLoading.startsWith('dispute-')}>Dong</button>
                                 <button className={styles['bk-btn-review']} onClick={handleDisputeCompletion} disabled={actionLoading === `dispute-${disputeTarget.booking_id}`}>
-                                    {actionLoading === `dispute-${disputeTarget.booking_id}` ? 'Dang gui...' : 'Bao chua xem'}
+                                    {actionLoading === `dispute-${disputeTarget.booking_id}` ? 'Đang gửi...' : 'Báo chưa xem'}
                                 </button>
                             </div>
                         </div>
@@ -278,15 +289,15 @@ function Dashboard() {
     }
 
     const tabs = [
-        { id: 'upcoming', label: 'Lich sap toi' },
-        { id: 'history', label: 'Lich su' },
-        { id: 'reviews', label: 'Danh gia' },
-        { id: 'profile', label: 'Tai khoan' },
+        { id: 'upcoming', label: 'Lịch sắp tới' },
+        { id: 'history', label: 'Lịch sử' },
+        { id: 'reviews', label: 'Đánh giá' },
+        { id: 'profile', label: 'Tài khoản' },
     ];
 
     async function handleUpdateProfile() {
         if (!profileForm.name.trim()) {
-            showToast('Vui long nhap ho ten.');
+            showToast('Vui lòng nhập họ tên.');
             return;
         }
 
@@ -294,7 +305,7 @@ function Dashboard() {
         try {
             const res = await api.profile.update({ name: profileForm.name });
             updateUser(res.user);
-            showToast('Da cap nhat thong tin.');
+            showToast('Đã cập nhật thông tin.');
         } catch (error) {
             showToast(error.message);
         } finally {
@@ -304,19 +315,19 @@ function Dashboard() {
 
     async function handleChangePassword() {
         if (!passForm.current_password || !passForm.new_password) {
-            showToast('Vui long dien day du thong tin.');
+            showToast('Vui lòng điền đầy đủ thông tin.');
             return;
         }
 
         if (passForm.new_password !== passForm.new_password_confirmation) {
-            showToast('Xac nhan mat khau khong khop.');
+            showToast('Xác nhận mật khẩu không khớp.');
             return;
         }
 
         setPassLoading(true);
         try {
             await api.profile.changePassword(passForm);
-            showToast('Da doi mat khau thanh cong.');
+            showToast('Đã đổi mật khẩu thành công.');
             setPassForm({ current_password: '', new_password: '', new_password_confirmation: '' });
         } catch (error) {
             showToast(error.message);
@@ -328,7 +339,7 @@ function Dashboard() {
     async function copyBookingCode(booking) {
         try {
             await navigator.clipboard.writeText(bookingCode(booking));
-            showToast('Da sao chep ma dat lich.');
+            showToast('Đã sao chép mã đặt lịch.');
         } catch {
             showToast(bookingCode(booking));
         }
@@ -358,7 +369,7 @@ function Dashboard() {
                             onClick={() => openCancelModal(booking)}
                             disabled={actionLoading === `cancel-${booking.booking_id}`}
                         >
-                            {actionLoading === `cancel-${booking.booking_id}` ? 'Dang huy...' : 'Huy lich'}
+                            {actionLoading === `cancel-${booking.booking_id}` ? 'Đang hủy...' : 'Hủy lịch'}
                         </button>
                     )}
                 </div>
@@ -386,39 +397,39 @@ function Dashboard() {
 
                     {canPayBooking(booking) && (
                         <button className={styles['bk-btn-pay']} onClick={() => setPayBooking(booking)}>
-                            {booking.latest_payment_status ? 'Thanh toan lai' : 'Thanh toan ngay'}
+                            {booking.latest_payment_status ? 'Thanh toán lại' : 'Thanh toán ngay'}
                         </button>
                     )}
 
                     {canConfirmCompletion(booking) && (
                         <>
                             <button className={styles['bk-btn-review']} onClick={() => handleConfirmCompletion(booking)}>
-                                {actionLoading === `complete-${booking.booking_id}` ? 'Dang xu ly...' : 'Da xem xong'}
+                                {actionLoading === `complete-${booking.booking_id}` ? 'Đang xử lý...' : 'Đã xem xong'}
                             </button>
                             <button className={styles['bk-btn-ghost']} onClick={() => openDisputeModal(booking)} disabled={actionLoading === `dispute-${booking.booking_id}`}>
-                                Chua xem
+                                Chưa xem
                             </button>
                         </>
                     )}
 
                     {booking.paid && booking.zoom_link ? (
-                        <button className={styles['bk-btn-ghost']} onClick={() => window.open(booking.zoom_link)}>
+                        <button className={styles['bk-btn-ghost']} onClick={() => openMeetingLink(booking.zoom_link)}>
                             Mo link hop
                         </button>
                     ) : mode === 'upcoming' && (
                         <button className={styles['bk-btn-ghost']} disabled>
-                            Chua co link hop
+                            Chưa có đường dẫn họp
                         </button>
                     )}
 
                     {mode === 'history' && booking.status === 'completed' && !alreadyReviewed && (
                         <button className={styles['bk-btn-review']} onClick={() => setReviewBooking(booking)}>
-                            Viet danh gia
+                            Viết đánh giá
                         </button>
                     )}
 
                     {mode === 'history' && booking.status === 'completed' && alreadyReviewed && (
-                        <span className={styles['reviewed-note']}>Da danh gia</span>
+                        <span className={styles['reviewed-note']}>Đã đánh giá</span>
                     )}
 
                     <button className={styles['bk-btn-ghost']} onClick={() => copyBookingCode(booking)}>
@@ -437,7 +448,7 @@ function Dashboard() {
                 <div className={styles['detail-modal']}>
                     <div className={styles['detail-head']}>
                         <div>
-                            <div className={styles['detail-kicker']}>Chi tiet lich</div>
+                            <div className={styles['detail-kicker']}>Chi tiết lịch</div>
                             <h2>{bookingCode(selectedBooking)}</h2>
                         </div>
                         <button className={styles['detail-close']} onClick={closeDetailModal} aria-label="Dong">x</button>
@@ -458,41 +469,41 @@ function Dashboard() {
 
                     <div className={styles['detail-grid']}>
                         <div><span>Reader</span><strong>{selectedBooking.reader}</strong></div>
-                        <div><span>Dich vu</span><strong>{selectedBooking.svc}</strong></div>
-                        <div><span>Ngay</span><strong>{selectedBooking.date}</strong></div>
-                        <div><span>Gio</span><strong>{selectedBooking.time}</strong></div>
-                        <div><span>Thoi luong</span><strong>{selectedBooking.dur}</strong></div>
-                        <div><span>Chi phi</span><strong>{selectedBooking.price}</strong></div>
-                        <div><span>Trang thai lich</span><strong>{STATUS_LABEL[selectedBooking.status] || selectedBooking.status}</strong></div>
-                        <div><span>Thanh toan</span><strong>{paymentLabel(selectedBooking)}</strong></div>
+                        <div><span>Dịch vụ</span><strong>{selectedBooking.svc}</strong></div>
+                        <div><span>Ngày</span><strong>{selectedBooking.date}</strong></div>
+                        <div><span>Giờ</span><strong>{selectedBooking.time}</strong></div>
+                        <div><span>Thời lượng</span><strong>{selectedBooking.dur}</strong></div>
+                        <div><span>Chi phí</span><strong>{selectedBooking.price}</strong></div>
+                        <div><span>Trạng thái lịch</span><strong>{STATUS_LABEL[selectedBooking.status] || selectedBooking.status}</strong></div>
+                        <div><span>Thanh toán</span><strong>{paymentLabel(selectedBooking)}</strong></div>
                         {selectedBooking.status === 'cancelled' && (
                             <>
-                                <div><span>Nguoi huy</span><strong>{selectedBooking.cancelled_by || '-'}</strong></div>
-                                <div><span>Ly do huy</span><strong>{selectedBooking.cancel_reason || '-'}</strong></div>
+                                <div><span>Người hủy</span><strong>{selectedBooking.cancelled_by || '-'}</strong></div>
+                                <div><span>Lý do hủy</span><strong>{selectedBooking.cancel_reason || '-'}</strong></div>
                             </>
                         )}
-                        <div><span>Han giu lich</span><strong>{selectedBooking.expires_at ? new Date(selectedBooking.expires_at).toLocaleString('vi-VN') : '-'}</strong></div>
-                        <div><span>Link hop</span><strong>{selectedBooking.zoom_link ? 'Da co' : 'Chua co'}</strong></div>
+                        <div><span>Hạn giữ lịch</span><strong>{selectedBooking.expires_at ? new Date(selectedBooking.expires_at).toLocaleString('vi-VN') : '-'}</strong></div>
+                        <div><span>Đường dẫn họp</span><strong>{selectedBooking.zoom_link ? 'Đã có' : 'Chưa có'}</strong></div>
                     </div>
 
                     <div className={styles['detail-actions']}>
                         {canPayBooking(selectedBooking) && (
                             <button className={styles['bk-btn-pay']} onClick={() => { setPayBooking(selectedBooking); setSelectedBooking(null); }}>
-                                Thanh toan ngay
+                                Thanh toán ngay
                             </button>
                         )}
                         {canConfirmCompletion(selectedBooking) && (
                             <>
                                 <button className={styles['bk-btn-review']} onClick={() => handleConfirmCompletion(selectedBooking)} disabled={actionLoading === `complete-${selectedBooking.booking_id}`}>
-                                    {actionLoading === `complete-${selectedBooking.booking_id}` ? 'Dang xu ly...' : 'Da xem xong'}
+                                    {actionLoading === `complete-${selectedBooking.booking_id}` ? 'Đang xử lý...' : 'Đã xem xong'}
                                 </button>
                                 <button className={styles['bk-btn-ghost']} onClick={() => openDisputeModal(selectedBooking)} disabled={actionLoading === `dispute-${selectedBooking.booking_id}`}>
-                                    Chua xem
+                                    Chưa xem
                                 </button>
                             </>
                         )}
                         {selectedBooking.zoom_link && (
-                            <button className={styles['bk-btn-ghost']} onClick={() => window.open(selectedBooking.zoom_link)}>
+                            <button className={styles['bk-btn-ghost']} onClick={() => openMeetingLink(selectedBooking.zoom_link)}>
                                 Mo link hop
                             </button>
                         )}
@@ -509,21 +520,21 @@ function Dashboard() {
         <div className={styles.page}>
             <div className={styles['ud-nav']}>
                 <div className={styles['ud-logo']}>Luna Arcana</div>
-                <button className={styles['ud-back']} onClick={() => navigate('/')}>Ve trang chu</button>
+                <button className={styles['ud-back']} onClick={() => navigate('/')}>Về trang chủ</button>
             </div>
 
             <div className={styles['ud-inner']}>
                 <div className={styles['ud-header']}>
                     <div className={styles['ud-avatar']}>{initials}</div>
                     <div className={styles['ud-info']}>
-                        <div className={styles['ud-welcome']}>Chao mung tro lai</div>
+                        <div className={styles['ud-welcome']}>Chào mừng trở lại</div>
                         <div className={styles['ud-name']}>{currentUser.name}</div>
                         <div className={styles['ud-email']}>{currentUser.email}</div>
                     </div>
                     <div className={styles['ud-stats']}>
-                        <div className={styles['ud-stat']}><div className={styles['ud-stat-val']}>{bookings.length}</div><div className={styles['ud-stat-lbl']}>Lich dat</div></div>
-                        <div className={styles['ud-stat']}><div className={styles['ud-stat-val']}>{completedCount}</div><div className={styles['ud-stat-lbl']}>Hoan thanh</div></div>
-                        <div className={styles['ud-stat']}><div className={styles['ud-stat-val']}>{reviews.length}</div><div className={styles['ud-stat-lbl']}>Danh gia</div></div>
+                        <div className={styles['ud-stat']}><div className={styles['ud-stat-val']}>{bookings.length}</div><div className={styles['ud-stat-lbl']}>Lịch đặt</div></div>
+                        <div className={styles['ud-stat']}><div className={styles['ud-stat-val']}>{completedCount}</div><div className={styles['ud-stat-lbl']}>Hoàn thành</div></div>
+                        <div className={styles['ud-stat']}><div className={styles['ud-stat-val']}>{reviews.length}</div><div className={styles['ud-stat-lbl']}>Đánh giá</div></div>
                     </div>
                 </div>
 
@@ -539,7 +550,7 @@ function Dashboard() {
                     <div className={styles['sync-alert']} role="alert">
                         <span>{bookingsError}</span>
                         <button onClick={() => refreshBookings()} disabled={bookingsLoading}>
-                            {bookingsLoading ? 'Dang tai...' : 'Thu lai'}
+                            {bookingsLoading ? 'Đang tải...' : 'Thử lại'}
                         </button>
                     </div>
                 )}
@@ -549,8 +560,8 @@ function Dashboard() {
                         {!upcoming.length ? (
                             <div className={styles['bk-empty']}>
                                 <div className={styles['bk-empty-icon']}>LA</div>
-                                <div className={styles['bk-empty-text']}>Ban chua co lich dat sap toi nao.</div>
-                                <button className="btn-primary" onClick={() => navigate('/#booking')}>Dat lich ngay</button>
+                                <div className={styles['bk-empty-text']}>Bạn chưa có lịch đặt sắp tới.</div>
+                                <button className="btn-primary" onClick={() => navigate('/#booking')}>Đặt lịch ngay</button>
                             </div>
                         ) : upcoming.map(booking => renderBookingCard(booking, 'upcoming'))}
                     </div>
@@ -561,7 +572,7 @@ function Dashboard() {
                         {!history.length ? (
                             <div className={styles['bk-empty']}>
                                 <div className={styles['bk-empty-icon']}>BK</div>
-                                <div className={styles['bk-empty-text']}>Chua co lich su dat bai nao.</div>
+                                <div className={styles['bk-empty-text']}>Chưa có lịch sử đặt bài nào.</div>
                             </div>
                         ) : history.map(booking => renderBookingCard(booking, 'history'))}
                     </div>
@@ -572,7 +583,7 @@ function Dashboard() {
                         {!reviews.length ? (
                             <div className={styles['bk-empty']}>
                                 <div className={styles['bk-empty-icon']}>RV</div>
-                                <div className={styles['bk-empty-text']}>Ban chua co danh gia nao. Hoan thanh mot buoi doc bai de chia se trai nghiem.</div>
+                                <div className={styles['bk-empty-text']}>Bạn chưa có đánh giá nào. Hãy hoàn thành một buổi đọc bài để chia sẻ trải nghiệm.</div>
                             </div>
                         ) : reviews.map((review, index) => (
                             <div key={`${review.bookingId}-${index}`} className={styles['my-review-card']}>
@@ -592,7 +603,7 @@ function Dashboard() {
                                 <div className={styles['mrc-text']}>"{review.text}"</div>
                                 {review.adminReply && (
                                     <div className={styles['admin-reply']}>
-                                        <div className={styles['admin-reply-title']}>Phan hoi tu admin</div>
+                                        <div className={styles['admin-reply-title']}>Phản hồi từ quản trị viên</div>
                                         <div>{review.adminReply}</div>
                                     </div>
                                 )}
@@ -604,25 +615,25 @@ function Dashboard() {
                 {activeTab === 'profile' && (
                     <div>
                         <div className={styles['bk-card']}>
-                            <div className={styles['bk-card-head']}><span className={styles['section-label']}>Thong tin tai khoan</span></div>
+                            <div className={styles['bk-card-head']}><span className={styles['section-label']}>Thông tin tài khoản</span></div>
                             <div className={styles['profile-panel']}>
-                                <label className={styles['profile-label']}>Ho va ten</label>
+                                <label className={styles['profile-label']}>Họ và tên</label>
                                 <input className={styles['profile-input']} value={profileForm.name} onChange={event => setProfileForm({ name: event.target.value })} />
                                 <label className={styles['profile-label']}>Email</label>
                                 <input className={styles['profile-input']} value={currentUser.email} disabled />
                                 <button className="btn-primary" onClick={handleUpdateProfile} disabled={profileLoading}>
-                                    {profileLoading ? 'Dang luu...' : 'Luu thay doi'}
+                                    {profileLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
                                 </button>
                             </div>
                         </div>
 
                         <div className={styles['bk-card']}>
-                            <div className={styles['bk-card-head']}><span className={styles['section-label']}>Doi mat khau</span></div>
+                            <div className={styles['bk-card-head']}><span className={styles['section-label']}>Đổi mật khẩu</span></div>
                             <div className={styles['profile-panel']}>
                                 {[
-                                    ['Mat khau hien tai', 'current_password'],
-                                    ['Mat khau moi', 'new_password'],
-                                    ['Xac nhan mat khau moi', 'new_password_confirmation'],
+                                    ['Mật khẩu hiện tại', 'current_password'],
+                                    ['Mật khẩu mới', 'new_password'],
+                                    ['Xác nhận mật khẩu mới', 'new_password_confirmation'],
                                 ].map(([label, key]) => (
                                     <div key={key}>
                                         <label className={styles['profile-label']}>{label}</label>
@@ -630,7 +641,7 @@ function Dashboard() {
                                     </div>
                                 ))}
                                 <button className="btn-primary" onClick={handleChangePassword} disabled={passLoading}>
-                                    {passLoading ? 'Dang xu ly...' : 'Doi mat khau'}
+                                    {passLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
                                 </button>
                             </div>
                         </div>

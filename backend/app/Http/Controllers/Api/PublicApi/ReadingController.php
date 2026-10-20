@@ -8,6 +8,7 @@ use App\Models\DailyReading;
 use App\Models\ReadingInterpretation;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class ReadingController extends Controller
 {
@@ -44,57 +45,33 @@ class ReadingController extends Controller
     // Dùng 1 lần rút
     public function useLimit(Request $request)
     {
-        $today = now()->toDateString();
-        $user  = $request->user('sanctum'); // null nếu chưa login
-        $limit = $user
-            ? (int) config('tarot.daily_limits.user', 5)
-            : (int) config('tarot.daily_limits.guest', 3);
-
-        if ($user) {
-            $record = DailyReading::firstOrCreate(
-                ['user_id' => $user->id, 'date' => $today],
-                ['count' => 0]
-            );
-        } else {
-            $ip     = $request->ip();
-            $record = DailyReading::firstOrCreate(
-                ['ip_address' => $ip, 'date' => $today, 'user_id' => null],
-                ['count' => 0]
-            );
+        $result = $this->consumeDailyLimit($request);
+        if (!$result) {
+            return response()->json(['message' => 'Bạn đã dùng hết lượt đọc miễn phí hôm nay. Vui lòng quay lại vào ngày mai.'], 429);
         }
 
-        if ($record->count >= $limit) {
-            return response()->json([
-                'message' => 'Bạn đã dùng hết lượt rút bài miễn phí hôm nay. Quay lại vào ngày mai nhé!'
-            ], 429);
-        }
-
-        $record->increment('count');
-
-        return response()->json([
-            'used'      => $record->count,
-            'limit'     => $limit,
-            'remaining' => max(0, $limit - $record->count),
-            'can_read'  => $record->count < $limit,
-        ]);
+        return response()->json($result);
     }
     public function interpret(Request $request)
     {
         $request->validate([
             'question' => 'required|string|max:500',
-            'cards'    => 'required|array|size:3',
-            'cards.*.name'       => 'required|string',
-            'cards.*.position'   => 'required|string',
+            'cards' => 'required|array|size:3',
+            'cards.*.name' => 'required|string',
+            'cards.*.position' => 'required|string',
             'cards.*.isReversed' => 'required|boolean',
-            'cards.*.slug'       => 'sometimes|string',
+            'cards.*.slug' => 'sometimes|string',
         ]);
 
         $question = $request->question;
-        $cards    = $request->cards;
+        $cards = $request->cards;
+        $limit = $this->consumeDailyLimit($request);
+        if (!$limit) {
+            return response()->json(['message' => 'Bạn đã dùng hết lượt đọc miễn phí hôm nay. Vui lòng quay lại vào ngày mai.'], 429);
+        }
 
         $cardText = collect($cards)->map(
-            fn($c) =>
-            "- {$c['position']}: {$c['name']}" . ($c['isReversed'] ? ' (Ngược)' : ' (Xuôi)')
+            fn($card) => "- {$card['position']}: {$card['name']}" . ($card['isReversed'] ? ' (Ngược)' : ' (Xuôi)')
         )->join("\n");
 
         $prompt = <<<EOT
@@ -113,25 +90,53 @@ class ReadingController extends Controller
             Viết bằng giọng văn ấm áp, huyền bí nhưng thực tế. Khoảng 250-350 từ.
             EOT;
 
-        // Thử từng AI theo thứ tự
         $interpretation = $this->tryAnthropic($prompt)
             ?? $this->tryGemini($prompt)
             ?? $this->tryGroq($prompt)
             ?? $this->mockInterpretation($question, $cards);
 
-        // Lưu lịch sử
         ReadingInterpretation::create([
-            'user_id'        => $request->user('sanctum')?->id,
-            'ip_address'     => $request->ip(),
-            'question'       => $question,
-            'cards'          => $cards,
+            'user_id' => $request->user('sanctum')?->id,
+            'ip_address' => $request->ip(),
+            'question' => $question,
+            'cards' => $cards,
             'interpretation' => $interpretation,
         ]);
 
-        return response()->json(['interpretation' => $interpretation]);
+        return response()->json(['interpretation' => $interpretation, 'limit' => $limit]);
     }
 
-    // ── Anthropic Claude ──
+    private function consumeDailyLimit(Request $request): ?array
+    {
+        $today = now()->toDateString();
+        $user = $request->user('sanctum');
+        $limit = $user
+            ? (int) config('tarot.daily_limits.user', 5)
+            : (int) config('tarot.daily_limits.guest', 3);
+
+        return DB::transaction(function () use ($today, $user, $limit, $request) {
+            $identity = $user
+                ? ['user_id' => $user->id, 'date' => $today]
+                : ['ip_address' => $request->ip(), 'date' => $today, 'user_id' => null];
+
+            $record = DailyReading::firstOrCreate($identity, ['count' => 0]);
+            $updated = DailyReading::whereKey($record->id)
+                ->where('count', '<', $limit)
+                ->increment('count');
+
+            if ($updated === 0) {
+                return null;
+            }
+
+            $used = (int) $record->fresh()->count;
+            return [
+                'used' => $used,
+                'limit' => $limit,
+                'remaining' => max(0, $limit - $used),
+                'can_read' => $used < $limit,
+            ];
+        });
+    }
     public function history(Request $request)
     {
         return response()->json(
@@ -185,7 +190,8 @@ class ReadingController extends Controller
 
         try {
             $response = Http::timeout(20)
-                ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $apiKey, [
+                ->withHeaders(['x-goog-api-key' => $apiKey])
+                ->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', [
                     'contents' => [
                         ['parts' => [['text' => $prompt]]]
                     ],
@@ -195,8 +201,9 @@ class ReadingController extends Controller
                 Log::info('AI: Gemini used');
                 return $response->json('candidates.0.content.parts.0.text');
             }
-        } catch (\Exception $e) {
-            Log::warning('Gemini failed: ' . $e->getMessage());
+        } catch (\Exception) {
+            // Do not log request URLs or exception details that could contain credentials.
+            Log::warning('Gemini request failed.');
         }
 
         return null;

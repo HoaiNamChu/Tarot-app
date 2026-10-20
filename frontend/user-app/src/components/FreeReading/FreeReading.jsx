@@ -161,14 +161,6 @@ function FreeReading() {
       return;
     }
 
-    try {
-      const res = await api.readings.useLimit();
-      setLimit(res);
-    } catch (e) {
-      showToast(e.message);
-      return;
-    }
-
     setShuffling(true);
     setInterpretation('');
     showToast('Vũ trụ đang kết nối năng lượng...');
@@ -220,6 +212,7 @@ function FreeReading() {
       }));
       const res = await api.readings.interpret(q, cardsPayload);
       setInterpretation(res.interpretation);
+      if (res.limit) setLimit(res.limit);
     } catch {
       showToast('Không thể kết nối AI lúc này. Vui lòng thử lại.');
     } finally {

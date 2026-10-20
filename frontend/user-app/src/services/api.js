@@ -13,7 +13,8 @@ const memoryCache = new Map();
 const pendingRequests = new Map();
 
 function getToken() {
-  return localStorage.getItem('la_token');
+  localStorage.removeItem('la_token');
+  return sessionStorage.getItem('la_token');
 }
 
 async function request(path, options = {}) {
@@ -37,8 +38,8 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const message = res.status === 429
-      ? 'Ban thao tac qua nhanh. Vui long doi mot chut roi thu lai.'
-      : data.message || 'Loi server';
+      ? 'Bạn thao tác quá nhanh. Vui lòng đợi một chút rồi thử lại.'
+      : data.message || 'Lỗi máy chủ';
     const err = new Error(message);
     err.status = res.status;
     err.data = data;

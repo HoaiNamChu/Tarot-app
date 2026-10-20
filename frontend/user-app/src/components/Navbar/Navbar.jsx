@@ -6,9 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 
 const NAV_LINKS = [
     { href: '#free-reading', label: 'Thu mien phi' },
-    { href: '#services', label: 'Dich vu' },
+    { href: '#services', label: 'Dịch vụ' },
     { href: '#readers', label: 'Tarot Reader' },
-    { href: '#booking', label: 'Dat lich' },
+    { href: '#booking', label: 'Đặt lịch' },
 ];
 
 function Navbar() {
@@ -56,13 +56,13 @@ function Navbar() {
                         <div className={`${styles['nav-user']} ${styles.desktopOnly}`}>
                             <div className={styles['user-avatar']}>{initials}</div>
                             <span className={styles['user-name']}>{currentUser?.name.split(' ').pop()}</span>
-                            <button className={styles['nav-cta']} onClick={() => navigate('/dashboard')}>Tai khoan</button>
-                            <button className={styles['nav-login']} onClick={handleLogout}>Dang xuat</button>
+                            <button className={styles['nav-cta']} onClick={() => navigate('/dashboard')}>Tài khoản</button>
+                            <button className={styles['nav-login']} onClick={handleLogout}>Đăng xuất</button>
                         </div>
                     ) : (
                         <div className={`${styles['nav-auth-btns']} ${styles.desktopOnly}`}>
-                            <button className={styles['nav-login']} onClick={() => openModal('login')}>Dang nhap</button>
-                            <button className={styles['nav-cta']} onClick={() => openModal('register')}>Dang ky</button>
+                            <button className={styles['nav-login']} onClick={() => openModal('login')}>Đăng nhập</button>
+                            <button className={styles['nav-cta']} onClick={() => openModal('register')}>Đăng ký</button>
                         </div>
                     )}
 
@@ -94,7 +94,7 @@ function Navbar() {
                 <div className={styles.mobileDivider} />
 
                 {loading ? (
-                    <div className={styles.mobileMenuItem}>Dang dong bo tai khoan...</div>
+                    <div className={styles.mobileMenuItem}>Đang đồng bộ tài khoản...</div>
                 ) : isLoggedIn ? (
                     <>
                         <div style={{ padding: '.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
@@ -105,20 +105,20 @@ function Navbar() {
                             </div>
                         </div>
                         <button className={styles.mobileMenuItem} onClick={() => { navigate('/dashboard'); setMenuOpen(false); }}>
-                            Tai khoan cua toi
+                            Tài khoản của tôi
                         </button>
                         <button className={styles.mobileMenuItem} onClick={handleLogoutClick} style={{ color: 'var(--rose)' }}>
-                            Dang xuat
+                            Đăng xuất
                         </button>
                     </>
                 ) : (
                     <>
                         <button className={styles.mobileMenuItem} onClick={() => { openModal('login'); setMenuOpen(false); }}>
-                            Dang nhap
+                            Đăng nhập
                         </button>
                         <button className={styles.mobileMenuItem} onClick={() => { openModal('register'); setMenuOpen(false); }}
                             style={{ color: 'var(--gold)', borderColor: 'var(--border)' }}>
-                            Dang ky mien phi
+                            Đăng ký miễn phí
                         </button>
                     </>
                 )}

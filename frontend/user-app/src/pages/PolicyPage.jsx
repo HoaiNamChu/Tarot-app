@@ -7,47 +7,47 @@ import { api } from '../services/api.js'
 
 const POLICIES = {
   terms: {
-    title: 'Dieu khoan su dung',
+    title: 'Điều khoản sử dụng',
     updated: '15/06/2026',
-    intro: 'Cac dieu khoan nay ap dung cho viec dat lich, thanh toan va su dung dich vu tu van tarot cua Luna Arcana.',
+    intro: 'Các điều khoản này áp dụng cho việc đặt lịch, thanh toán và sử dụng dịch vụ tư vấn Tarot của Luna Arcana.',
     sections: [
-      { heading: 'Pham vi dich vu', body: 'Luna Arcana cung cap lich hen tu van truc tuyen voi reader. Noi dung tu van mang tinh tham khao va khong thay the tu van y te, phap ly, tai chinh hoac quyet dinh chuyen mon.' },
-      { heading: 'Tai khoan va thong tin dat lich', body: 'Khach hang can cung cap thong tin lien he chinh xac de nhan xac nhan, link phong hop va thong bao lien quan den lich hen.' },
-      { heading: 'Thanh toan', body: 'Lich hen chi duoc giu trong thoi gian hien thi tai buoc thanh toan. He thong co the tu dong huy lich neu het han thanh toan hoac giao dich khong hop le.' },
-      { heading: 'Hanh vi su dung', body: 'Khach hang khong duoc su dung dich vu cho hanh vi quang cao, lam phien, xam pham quyen rieng tu, hoac noi dung vi pham phap luat.' },
+      { heading: 'Phạm vi dịch vụ', body: 'Luna Arcana cung cấp lịch hẹn tư vấn trực tuyến với reader. Nội dung tư vấn chỉ mang tính tham khảo, không thay thế tư vấn y tế, pháp lý, tài chính hoặc quyết định chuyên môn.' },
+      { heading: 'Tài khoản và thông tin đặt lịch', body: 'Khách hàng cần cung cấp thông tin liên hệ chính xác để nhận xác nhận, đường dẫn phòng họp và thông báo liên quan đến lịch hẹn.' },
+      { heading: 'Thanh toán', body: 'Lịch hẹn chỉ được giữ trong thời gian hiển thị ở bước thanh toán. Hệ thống có thể tự động hủy lịch nếu hết hạn thanh toán hoặc giao dịch không hợp lệ.' },
+      { heading: 'Hành vi sử dụng', body: 'Khách hàng không được sử dụng dịch vụ để quảng cáo, làm phiền, xâm phạm quyền riêng tư hoặc đăng nội dung vi phạm pháp luật.' },
     ],
   },
   privacy: {
-    title: 'Chinh sach bao mat thong tin',
+    title: 'Chính sách bảo mật thông tin',
     updated: '15/06/2026',
-    intro: 'Chinh sach nay mo ta cach Luna Arcana thu thap, su dung va bao ve du lieu cua khach hang.',
+    intro: 'Chính sách này mô tả cách Luna Arcana thu thập, sử dụng và bảo vệ dữ liệu của khách hàng.',
     sections: [
-      { heading: 'Thong tin thu thap', body: 'Chung toi co the thu thap ho ten, email, so dien thoai, lich su dat lich, noi dung ghi chu va thong tin thanh toan can thiet de xu ly don hang.' },
-      { heading: 'Muc dich su dung', body: 'Du lieu duoc dung de tao lich, gui email thong bao, ho tro khach hang, xac minh thanh toan va cai thien chat luong dich vu.' },
-      { heading: 'Bao ve du lieu', body: 'He thong gioi han quyen truy cap theo vai tro admin, reader va khach hang. Cac khoa bi mat thanh toan khong duoc hien thi lai sau khi luu.' },
-      { heading: 'Yeu cau ho tro', body: 'Khach hang co the lien he de yeu cau cap nhat thong tin ca nhan hoac duoc giai thich ve du lieu dang duoc luu tru.' },
+      { heading: 'Thông tin thu thập', body: 'Chúng tôi có thể thu thập họ tên, email, số điện thoại, lịch sử đặt lịch, nội dung ghi chú và thông tin thanh toán cần thiết để xử lý đơn hàng.' },
+      { heading: 'Mục đích sử dụng', body: 'Dữ liệu được dùng để tạo lịch, gửi email thông báo, hỗ trợ khách hàng, xác minh thanh toán và cải thiện chất lượng dịch vụ.' },
+      { heading: 'Bảo vệ dữ liệu', body: 'Hệ thống giới hạn quyền truy cập theo vai trò quản trị viên, reader và khách hàng. Khóa bí mật thanh toán không được hiển thị lại sau khi lưu.' },
+      { heading: 'Yêu cầu hỗ trợ', body: 'Khách hàng có thể liên hệ để yêu cầu cập nhật thông tin cá nhân hoặc được giải thích về dữ liệu đang được lưu trữ.' },
     ],
   },
   payment: {
-    title: 'Chinh sach thanh toan',
+    title: 'Chính sách thanh toán',
     updated: '15/06/2026',
-    intro: 'Trang nay giai thich cac hinh thuc thanh toan va trang thai xu ly lich hen.',
+    intro: 'Trang này giải thích các hình thức thanh toán và trạng thái xử lý lịch hẹn.',
     sections: [
-      { heading: 'Phuong thuc ho tro', body: 'Luna Arcana co the bat hoac tat tung phuong thuc thanh toan nhu chuyen khoan ngan hang, MoMo va VNPay theo cau hinh he thong.' },
-      { heading: 'Giu lich tam thoi', body: 'Sau khi tao lich, he thong giu khung gio trong thoi gian gioi han. Neu qua han ma chua thanh toan, lich co the tu dong huy de tra lai slot cho reader.' },
-      { heading: 'Thanh toan tu dong', body: 'Voi cong thanh toan tu dong, trang thai lich duoc cap nhat theo ket qua tra ve tu nha cung cap. Khach hang khong nen dong trang khi giao dich dang xu ly.' },
-      { heading: 'Xac minh thu cong', body: 'Voi chuyen khoan ngan hang, admin se xac minh giao dich va cap nhat trang thai thanh toan khi tien da vao tai khoan.' },
+      { heading: 'Phương thức hỗ trợ', body: 'Luna Arcana có thể bật hoặc tắt từng phương thức thanh toán như chuyển khoản ngân hàng, MoMo và VNPay theo cấu hình hệ thống.' },
+      { heading: 'Giữ lịch tạm thời', body: 'Sau khi tạo lịch, hệ thống giữ khung giờ trong thời gian giới hạn. Nếu quá hạn mà chưa thanh toán, lịch có thể tự động hủy để trả lại khung giờ cho reader.' },
+      { heading: 'Thanh toán tự động', body: 'Với cổng thanh toán tự động, trạng thái lịch được cập nhật theo kết quả từ nhà cung cấp. Khách hàng không nên đóng trang khi giao dịch đang xử lý.' },
+      { heading: 'Xác minh thủ công', body: 'Với chuyển khoản ngân hàng, quản trị viên sẽ xác minh giao dịch và cập nhật trạng thái thanh toán khi tiền đã vào tài khoản.' },
     ],
   },
   refund: {
-    title: 'Chinh sach hoan tien',
+    title: 'Chính sách hoàn tiền',
     updated: '15/06/2026',
-    intro: 'Chinh sach hoan tien giup khach hang nam ro cac truong hop duoc ho tro va cach thuc xu ly.',
+    intro: 'Chính sách hoàn tiền giúp khách hàng nắm rõ các trường hợp được hỗ trợ và cách thức xử lý.',
     sections: [
-      { heading: 'Truong hop co the hoan tien', body: 'Khach hang co the duoc hoan tien khi lich bi huy do loi van hanh, reader khong the thuc hien lich, hoac giao dich bi thu tien nhung khong tao duoc lich hop le.' },
-      { heading: 'Truong hop can xem xet', body: 'Yeu cau huy sat gio hen, vang mat hoac cung cap thong tin lien he sai se duoc admin xem xet theo tung truong hop cu the.' },
-      { heading: 'Hinh thuc hoan tien', body: 'Hoan tien duoc thuc hien theo phuong thuc phu hop voi giao dich goc hoac chuyen khoan thu cong sau khi doi soat.' },
-      { heading: 'Thoi gian xu ly', body: 'Thoi gian xu ly phu thuoc vao ngan hang hoac cong thanh toan. Admin se cap nhat trang thai trong lich su thanh toan cua khach hang.' },
+      { heading: 'Trường hợp có thể hoàn tiền', body: 'Khách hàng có thể được hoàn tiền khi lịch bị hủy do lỗi vận hành, reader không thể thực hiện lịch hoặc giao dịch bị trừ tiền nhưng không tạo được lịch hợp lệ.' },
+      { heading: 'Trường hợp cần xem xét', body: 'Yêu cầu hủy sát giờ hẹn, vắng mặt hoặc cung cấp thông tin liên hệ sai sẽ được quản trị viên xem xét theo từng trường hợp cụ thể.' },
+      { heading: 'Hình thức hoàn tiền', body: 'Hoàn tiền được thực hiện theo phương thức phù hợp với giao dịch gốc hoặc chuyển khoản thủ công sau khi đối soát.' },
+      { heading: 'Thời gian xử lý', body: 'Thời gian xử lý phụ thuộc vào ngân hàng hoặc cổng thanh toán. Quản trị viên sẽ cập nhật trạng thái trong lịch sử thanh toán của khách hàng.' },
     ],
   },
 }
@@ -84,10 +84,10 @@ function PolicyPage({ type }) {
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
-        <a href="/" className={styles.back}>Ve trang chu</a>
+        <a href="/" className={styles.back}>Về trang chủ</a>
         <p className={styles.kicker}>Luna Arcana</p>
         <h1>{policy.title}</h1>
-        <p className={styles.updated}>Cap nhat: {policy.updated}</p>
+        <p className={styles.updated}>Cập nhật: {policy.updated}</p>
         <p className={styles.intro}>{policy.intro}</p>
       </section>
 

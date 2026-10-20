@@ -10,7 +10,8 @@ function resolveApiBase() {
 const BASE = resolveApiBase();
 
 function getToken() {
-    return localStorage.getItem('admin_token');
+    localStorage.removeItem('admin_token');
+    return sessionStorage.getItem('admin_token');
 }
 
 async function request(path, options = {}) {

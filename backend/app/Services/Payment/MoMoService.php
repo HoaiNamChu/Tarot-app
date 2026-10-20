@@ -114,7 +114,11 @@ class MoMoService
     public function verifyResult(array $data): bool
     {
         $signature = $data['signature'] ?? '';
-        if (!is_string($signature) || $signature === '') {
+        if (
+            !is_string($signature) ||
+            $signature === '' ||
+            !hash_equals((string) $this->config->momo()['partner_code'], (string) ($data['partnerCode'] ?? ''))
+        ) {
             return false;
         }
 

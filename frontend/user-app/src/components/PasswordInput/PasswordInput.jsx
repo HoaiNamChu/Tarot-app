@@ -34,8 +34,8 @@ export default function PasswordInput({ className = 'input', style, ...props }) 
             <button
                 type="button"
                 className={styles.button}
-                aria-label={visible ? 'An noi dung' : 'Hien noi dung'}
-                title={visible ? 'An' : 'Hien'}
+                aria-label={visible ? 'Ẩn nội dung' : 'Hiện nội dung'}
+                title={visible ? 'Ẩn' : 'Hiện'}
                 onClick={() => setVisible(v => !v)}
             >
                 <EyeIcon open={visible} />
