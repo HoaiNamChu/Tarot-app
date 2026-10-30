@@ -76,11 +76,11 @@ class MoMoIpnTest extends TestCase
             ->assertOk()
             ->assertJson([
                 'resultCode' => 0,
-                'message' => 'Booking is closed',
+                'message' => 'Late payment captured; refund review required',
             ]);
 
-        $this->assertSame(Payment::EXPIRED, $payment->refresh()->status);
-        $this->assertSame('unpaid', $booking->refresh()->payment_status);
+        $this->assertSame(Payment::SUCCESS, $payment->refresh()->status);
+        $this->assertSame('refund_pending', $booking->refresh()->payment_status);
         $this->assertSame('cancelled', $booking->status);
     }
 

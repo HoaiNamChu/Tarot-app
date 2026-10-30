@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Payment;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Payment;
+use App\Services\NotificationService;
 use App\Services\Payment\MoMoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +29,10 @@ class MoMoController extends Controller
         try {
             $response = $this->processPayment($request, $service);
             $payment?->refresh();
-            $query['status'] = $payment?->status === Payment::SUCCESS ? 'success' : 'failed';
+            $payment?->load('booking');
+            $query['status'] = $payment?->status === Payment::SUCCESS
+                ? ($payment->booking?->payment_status === 'refund_pending' ? 'refund_pending' : 'success')
+                : 'failed';
         } catch (\Throwable) {
             $query['status'] = 'failed';
         }
@@ -50,14 +55,21 @@ class MoMoController extends Controller
 
     private function processPayment(Request $request, MoMoService $service)
     {
-        return DB::transaction(function () use ($request, $service) {
-            $paymentId = $service->paymentIdFromOrderId((string) $request->input('orderId'));
-            if (!$paymentId) {
-                throw new \RuntimeException('invalid-order-id');
-            }
+        $paymentId = $service->paymentIdFromOrderId((string) $request->input('orderId'));
+        if (!$paymentId) {
+            throw new \RuntimeException('invalid-order-id');
+        }
 
-            $payment = Payment::lockForUpdate()->findOrFail($paymentId);
-            $payment->load('booking');
+        $bookingId = Payment::whereKey($paymentId)->value('booking_id');
+        if (!$bookingId) {
+            throw new \RuntimeException('invalid-payment');
+        }
+
+        return DB::transaction(function () use ($request, $paymentId, $bookingId) {
+            $booking = Booking::lockForUpdate()->findOrFail($bookingId);
+            $payment = Payment::where('booking_id', $booking->id)
+                ->lockForUpdate()
+                ->findOrFail($paymentId);
 
             if ((int) $request->input('amount') !== (int) $payment->amount) {
                 throw new \RuntimeException('invalid-amount');
@@ -67,15 +79,14 @@ class MoMoController extends Controller
                 return response()->json(['resultCode' => 0, 'message' => 'Already confirmed']);
             }
 
-            if ($payment->status === Payment::REFUNDED || in_array($payment->booking->payment_status, ['refund_pending', 'refunded'], true)) {
+            if ($payment->status === Payment::REFUNDED || in_array($booking->payment_status, ['refund_pending', 'refunded'], true)) {
                 return response()->json(['resultCode' => 0, 'message' => 'Already refunded']);
             }
 
-            if ($payment->status === Payment::EXPIRED || $payment->booking->status === 'cancelled') {
-                return response()->json(['resultCode' => 0, 'message' => 'Booking is closed']);
-            }
+            $succeeded = (int) $request->input('resultCode') === 0;
 
-            if ((int) $request->input('resultCode') === 0) {
+            if ($succeeded) {
+                $capturedAfterCancellation = $payment->status === Payment::EXPIRED || $booking->status === 'cancelled';
                 $payment->update([
                     'status' => Payment::SUCCESS,
                     'transaction_code' => (string) $request->input('transId'),
@@ -84,13 +95,30 @@ class MoMoController extends Controller
                     ]),
                 ]);
 
-                $payment->booking->update([
-                    'payment_status' => 'paid',
-                    'status' => 'confirmed',
+                $booking->update([
+                    'payment_status' => $capturedAfterCancellation ? 'refund_pending' : 'paid',
+                    'status' => $capturedAfterCancellation ? 'cancelled' : 'confirmed',
                     'paid_at' => now(),
                 ]);
 
-                return response()->json(['resultCode' => 0, 'message' => 'Confirm Success']);
+                if ($capturedAfterCancellation) {
+                    app(NotificationService::class)->notifyAdmins(
+                        'payment.late_capture',
+                        'Đã nhận thanh toán sau khi lịch bị hủy',
+                        'Giao dịch MoMo đến sau khi hủy lịch, cần kiểm tra để hoàn tiền.',
+                        '/payments',
+                        ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'gateway' => 'momo']
+                    );
+                }
+
+                return response()->json([
+                    'resultCode' => 0,
+                    'message' => $capturedAfterCancellation ? 'Late payment captured; refund review required' : 'Confirm Success',
+                ]);
+            }
+
+            if ($payment->status === Payment::EXPIRED || $booking->status === 'cancelled') {
+                return response()->json(['resultCode' => 0, 'message' => 'Booking is closed']);
             }
 
             $payment->update([

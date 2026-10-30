@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Payment;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Payment;
+use App\Services\NotificationService;
 use App\Services\Payment\PaymentGatewayConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,8 +33,9 @@ class VNPayController extends Controller
         try {
             $this->processPayment($request);
             $payment?->refresh();
-            $query['status'] = $request->vnp_ResponseCode === '00' && $payment?->status === Payment::SUCCESS
-                ? 'success'
+            $payment?->load('booking');
+            $query['status'] = $payment?->status === Payment::SUCCESS
+                ? ($payment->booking?->payment_status === 'refund_pending' ? 'refund_pending' : 'success')
                 : 'failed';
         } catch (\Throwable) {
             $query['status'] = 'failed';
@@ -83,47 +86,65 @@ class VNPayController extends Controller
 
     private function processPayment(Request $request)
     {
-        return DB::transaction(function () use ($request) {
+        $paymentId = (int) $request->input('vnp_TxnRef');
+        $bookingId = Payment::whereKey($paymentId)->value('booking_id');
+        abort_if(!$bookingId, 404, 'Payment not found.');
 
-            $payment = Payment::lockForUpdate()->findOrFail($request->vnp_TxnRef);
-            $payment->load('booking');
+        return DB::transaction(function () use ($request, $paymentId, $bookingId) {
+            $booking = Booking::lockForUpdate()->findOrFail($bookingId);
+            $payment = Payment::where('booking_id', $booking->id)
+                ->lockForUpdate()
+                ->findOrFail($paymentId);
 
-            // FIX: throw exception thay vì redirect() trong transaction
-            // redirect() không thoát ra khỏi transaction, code vẫn chạy tiếp
-            if ((int)$request->vnp_Amount !== (int)($payment->amount * 100)) {
+            if ((int) $request->input('vnp_Amount') !== (int) ($payment->amount * 100)) {
                 throw new \Exception('invalid-amount');
             }
 
-            // Idempotent: đã xử lý rồi thì bỏ qua
             if ($payment->status === Payment::SUCCESS) {
                 return response()->json(['RspCode' => '00', 'Message' => 'Already confirmed']);
             }
 
-            if ($payment->status === Payment::REFUNDED || in_array($payment->booking->payment_status, ['refund_pending', 'refunded'], true)) {
+            if ($payment->status === Payment::REFUNDED || in_array($booking->payment_status, ['refund_pending', 'refunded'], true)) {
                 return response()->json(['RspCode' => '00', 'Message' => 'Already refunded']);
             }
 
-            if ($payment->status === Payment::EXPIRED || $payment->booking->status === 'cancelled') {
+            $succeeded = $request->input('vnp_ResponseCode') === '00'
+                && $request->input('vnp_TransactionStatus') === '00';
+
+            if ($succeeded) {
+                $capturedAfterCancellation = $payment->status === Payment::EXPIRED || $booking->status === 'cancelled';
+                $payment->update([
+                    'status' => Payment::SUCCESS,
+                    'transaction_code' => $request->input('vnp_TransactionNo'),
+                    'payload' => $request->all(),
+                ]);
+
+                $booking->update([
+                    'payment_status' => $capturedAfterCancellation ? 'refund_pending' : 'paid',
+                    'status' => $capturedAfterCancellation ? 'cancelled' : 'confirmed',
+                    'paid_at' => now(),
+                ]);
+
+                if ($capturedAfterCancellation) {
+                    app(NotificationService::class)->notifyAdmins(
+                        'payment.late_capture',
+                        'Đã nhận thanh toán sau khi lịch bị hủy',
+                        'Giao dịch VNPay đến sau khi hủy lịch, cần kiểm tra để hoàn tiền.',
+                        '/payments',
+                        ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'gateway' => 'vnpay']
+                    );
+                }
+
+                return response()->json([
+                    'RspCode' => '00',
+                    'Message' => $capturedAfterCancellation ? 'Late payment captured; refund review required' : 'Confirm Success',
+                ]);
+            }
+
+            if ($payment->status === Payment::EXPIRED || $booking->status === 'cancelled') {
                 return response()->json(['RspCode' => '00', 'Message' => 'Booking is closed']);
             }
 
-            if ($request->vnp_ResponseCode === '00' && $request->vnp_TransactionStatus === '00') {
-                $payment->update([
-                    'status'           => Payment::SUCCESS,
-                    'transaction_code' => $request->vnp_TransactionNo,
-                    'payload'          => $request->all(),
-                ]);
-
-                $payment->booking->update([
-                    'payment_status' => 'paid',
-                    'status'         => 'confirmed',
-                    'paid_at'        => now(),
-                ]);
-
-                return response()->json(['RspCode' => '00', 'Message' => 'Confirm Success']);
-            }
-
-            // FIX: set failed thay vì để pending mãi khi user back/tắt tab
             $payment->update([
                 'status'  => 'failed',
                 'payload' => $request->all(),

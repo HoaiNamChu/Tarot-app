@@ -8,12 +8,63 @@ use App\Models\ReaderAvailabilityRule;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\CreateBookingService;
+use App\Services\Booking\ReaderAvailabilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AvailabilityTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_booking_api_rejects_inactive_reader_and_service(): void
+    {
+        [$reader, $service, $user] = $this->seedReaderServiceAndUser();
+        Sanctum::actingAs($user);
+        $payload = [
+            'reader_id' => $reader->id,
+            'service_id' => $service->id,
+            'booked_at' => now()->addDays(2)->setTime(10, 0)->toDateTimeString(),
+        ];
+
+        $reader->update(['is_active' => false]);
+        $this->postJson('/api/bookings', $payload)->assertNotFound();
+
+        $reader->update(['is_active' => true]);
+        $service->update(['is_active' => false]);
+        $this->postJson('/api/bookings', $payload)->assertNotFound();
+    }
+
+    public function test_default_reader_hours_match_displayed_09_to_22_window(): void
+    {
+        [$reader, $service] = $this->seedReaderServiceAndUser();
+        $availability = app(ReaderAvailabilityService::class);
+
+        $this->assertFalse($availability->isSlotAllowed($reader, now()->addDays(2)->setTime(8, 0), $service->duration));
+        $this->assertTrue($availability->isSlotAllowed($reader, now()->addDays(2)->setTime(10, 0), $service->duration));
+        $this->assertSame('09:00', $availability->formatRules($reader)[0]['start_time']);
+        $this->assertSame('22:00', $availability->formatRules($reader)[0]['end_time']);
+    }
+
+    public function test_public_reader_list_does_not_expose_account_contact_or_user_id(): void
+    {
+        $user = User::factory()->create();
+        $reader = Reader::create([
+            'user_id' => $user->id,
+            'name' => 'Public QA Reader',
+            'title' => 'Tarot Reader',
+            'bio' => 'Public profile',
+            'email' => 'private-reader@example.com',
+            'phone' => '0900000000',
+        ]);
+
+        $this->getJson('/api/readers')
+            ->assertOk()
+            ->assertJsonPath('0.id', $reader->id)
+            ->assertJsonMissingPath('0.email')
+            ->assertJsonMissingPath('0.phone')
+            ->assertJsonMissingPath('0.user_id');
+    }
 
     public function test_expired_pending_booking_does_not_block_reader_slot(): void
     {
@@ -63,7 +114,9 @@ class AvailabilityTest extends TestCase
             ->assertJsonCount(1)
             ->assertJsonPath('0.start_time', '10:00')
             ->assertJsonPath('0.end_time', '11:00')
-            ->assertJsonPath('0.service', 'QA Service');
+            ->assertJsonPath('0.service', 'QA Service')
+            ->assertJsonMissingPath('0.status')
+            ->assertJsonMissingPath('0.payment_status');
     }
 
     public function test_pending_verification_booking_blocks_slot_even_after_hold_expiry(): void

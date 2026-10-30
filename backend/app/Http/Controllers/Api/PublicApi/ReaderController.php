@@ -10,9 +10,9 @@ class ReaderController extends Controller
 {
     public function index()
     {
-        $readers = Cache::remember('public:readers:active:v1', now()->addMinutes(10), fn() =>
+        $readers = Cache::remember('public:readers:active:v2', now()->addMinutes(10), fn() =>
             Reader::query()
-                ->select(['id', 'name', 'title', 'bio', 'avatar', 'email', 'phone', 'is_active', 'created_at', 'updated_at', 'user_id'])
+                ->select(['id', 'name', 'title', 'bio', 'avatar'])
                 ->where('is_active', true)
                 ->orderBy('id')
                 ->get()

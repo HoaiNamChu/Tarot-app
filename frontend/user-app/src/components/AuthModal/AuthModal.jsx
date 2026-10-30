@@ -162,7 +162,7 @@ function AuthModal({ isOpen, activeTab, onClose }) {
               </div>
               <div className={styles.mfg}>
                 <label className={styles.mlbl}>Mật Khẩu</label>
-                <PasswordInput className={styles.minput} placeholder="Ít nhất 6 ký tự"
+                <PasswordInput className={styles.minput} placeholder="Ít nhất 8 ký tự"
                   value={regForm.pass} onChange={e => setRegForm(p => ({ ...p, pass: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && submitRegister()} />
               </div>

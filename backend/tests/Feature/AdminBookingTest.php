@@ -203,6 +203,28 @@ class AdminBookingTest extends TestCase
         });
     }
 
+    public function test_user_cannot_cancel_booking_while_a_payment_is_pending(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $booking = $this->makeBooking([
+            'user_id' => $user->id,
+            'status' => 'pending',
+        ]);
+        Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'vnpay',
+            'amount' => 250000,
+            'status' => Payment::PENDING,
+        ]);
+
+        $this->patchJson("/api/bookings/{$booking->id}/cancel")
+            ->assertStatus(409);
+
+        $this->assertSame('pending', $booking->refresh()->status);
+        $this->assertSame('unpaid', $booking->payment_status);
+    }
+
     public function test_user_cancel_booking_still_succeeds_when_notification_mail_fails(): void
     {
         Mail::shouldReceive('to')

@@ -83,6 +83,27 @@ class ReaderBookingManagementTest extends TestCase
         $this->assertNull($booking->cancel_reason);
     }
 
+    public function test_reader_cannot_cancel_while_customer_payment_is_pending(): void
+    {
+        $readerUser = User::factory()->create(['role' => 'reader']);
+        $reader = $this->makeReader($readerUser);
+        $service = $this->makeService();
+        $booking = $this->makeBooking($reader, $service, ['status' => 'pending']);
+        Payment::create([
+            'booking_id' => $booking->id,
+            'gateway' => 'vnpay',
+            'amount' => $service->price,
+            'status' => Payment::PENDING,
+        ]);
+        Sanctum::actingAs($readerUser);
+
+        $this->patchJson("/api/reader/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Reader bi ban dot xuat',
+        ])->assertStatus(409);
+
+        $this->assertSame('pending', $booking->refresh()->status);
+    }
+
     public function test_reader_cancel_paid_booking_marks_refund_pending(): void
     {
         $readerUser = User::factory()->create(['role' => 'reader']);
@@ -152,6 +173,32 @@ class ReaderBookingManagementTest extends TestCase
             'service_id' => $service->id,
             'booked_at' => $first->booked_at->copy()->addMinutes(15)->toDateTimeString(),
         ])->assertUnprocessable();
+    }
+
+    public function test_reader_cannot_change_service_after_payment(): void
+    {
+        $readerUser = User::factory()->create(['role' => 'reader']);
+        $reader = $this->makeReader($readerUser);
+        $service = $this->makeService();
+        $replacementService = Service::create([
+            'name' => 'More expensive service',
+            'description' => 'Alternative service',
+            'duration' => 90,
+            'price' => 400000,
+            'is_active' => true,
+        ]);
+        $booking = $this->makeBooking($reader, $service, [
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+        Sanctum::actingAs($readerUser);
+
+        $this->putJson("/api/reader/bookings/{$booking->id}", [
+            'service_id' => $replacementService->id,
+        ])->assertUnprocessable();
+
+        $this->assertSame($service->id, $booking->refresh()->service_id);
     }
 
     public function test_reader_update_booking_ignores_expired_pending_unpaid_conflicts(): void

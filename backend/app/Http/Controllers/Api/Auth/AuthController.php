@@ -30,7 +30,7 @@ class AuthController extends Controller
             'email.email'       => 'Email không hợp lệ.',
             'email.unique'      => 'Email này đã được đăng ký rồi.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
-            'password.min'      => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            'password.min'      => 'Mật khẩu phải có ít nhất 8 ký tự.',
         ]);
 
         $user = User::create([

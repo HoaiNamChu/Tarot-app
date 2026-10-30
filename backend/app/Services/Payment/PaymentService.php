@@ -10,6 +10,10 @@ class PaymentService
 {
     public function create(Booking $booking, string $gateway): Payment
     {
+        if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
+            throw new \RuntimeException('Booking khong con o trang thai cho thanh toan.');
+        }
+
         if ($booking->payment_status !== 'unpaid') {
             throw new \Exception('Booking khong con o trang thai cho thanh toan.');
         }
@@ -20,6 +24,10 @@ class PaymentService
 
         return DB::transaction(function () use ($booking, $gateway) {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
+
+            if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
+                throw new \RuntimeException('Booking khong con o trang thai cho thanh toan.');
+            }
 
             if ($booking->payment_status !== 'unpaid') {
                 throw new \Exception('Booking khong con o trang thai cho thanh toan.');

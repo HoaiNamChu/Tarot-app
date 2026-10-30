@@ -86,6 +86,26 @@ class AuthApiTest extends TestCase
             ->assertJsonMissingPath('token');
     }
 
+    public function test_login_attempts_are_throttled_per_normalized_email(): void
+    {
+        User::factory()->create([
+            'email' => 'throttle@example.com',
+            'password' => 'password123',
+        ]);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'Throttle@Example.com',
+                'password' => 'wrong-password',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'throttle@example.com',
+            'password' => 'password123',
+        ])->assertTooManyRequests();
+    }
+
     public function test_logout_revokes_current_token(): void
     {
         $register = $this->postJson('/api/auth/register', [

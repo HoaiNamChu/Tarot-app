@@ -19,6 +19,7 @@ class ExpireBookingsCommand extends Command
         DB::transaction(function () {
             $bookings = Booking::where('payment_status', 'unpaid')
                 ->where('expires_at', '<=', now())
+                ->lockForUpdate()
                 ->whereIn('status', ['pending']) // FIX: bỏ 'pending_payment' không tồn tại
                 ->get();
 

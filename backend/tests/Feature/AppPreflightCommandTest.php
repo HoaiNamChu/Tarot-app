@@ -12,6 +12,9 @@ class AppPreflightCommandTest extends TestCase
 
     public function test_basic_preflight_passes_in_testing_environment(): void
     {
+        config(['mail.mailers.smtp.scheme' => 'smtp']);
+        AppSetting::updateOrCreate(['key' => 'payment_vnpay_enabled'], ['value' => '0']);
+
         $this->artisan('app:preflight')
             ->expectsOutputToContain('Preflight passed.')
             ->assertSuccessful();

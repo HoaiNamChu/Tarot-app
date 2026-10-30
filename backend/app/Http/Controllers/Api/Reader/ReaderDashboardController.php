@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Reader;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Reader;
 use App\Models\Service;
 use App\Models\User;
@@ -50,7 +51,7 @@ class ReaderDashboardController extends Controller
             return response()->json(['message' => 'Khong tim thay thong tin Reader.'], 404);
         }
 
-        $query = Booking::with(['user', 'service'])
+        $query = Booking::with(['user', 'service', 'latestPayment'])
             ->where('reader_id', $reader->id)
             ->orderBy('booked_at', 'desc');
 
@@ -152,7 +153,20 @@ class ReaderDashboardController extends Controller
                 return response()->json(['message' => 'Chi co the sua lich dang cho xac nhan hoac da xac nhan.'], 422);
             }
 
-            $service = Service::findOrFail($data['service_id'] ?? $booking->service_id);
+            $requestedServiceId = (int) ($data['service_id'] ?? $booking->service_id);
+            $serviceChanged = $requestedServiceId !== (int) $booking->service_id;
+
+            if ($serviceChanged && $booking->payment_status !== 'unpaid') {
+                return response()->json(['message' => 'Khong the doi dich vu sau khi khach da thanh toan.'], 422);
+            }
+
+            if ($serviceChanged && $booking->payments()->where('status', Payment::PENDING)->exists()) {
+                return response()->json(['message' => 'Khong the doi dich vu khi giao dich dang duoc xu ly.'], 409);
+            }
+
+            $service = $serviceChanged
+                ? Service::where('is_active', true)->lockForUpdate()->findOrFail($requestedServiceId)
+                : $booking->service;
             $bookedAt = Carbon::parse($data['booked_at'] ?? $booking->booked_at);
             $this->ensureSlotIsFree($reader->id, $booking->id, $service, $bookedAt);
 
@@ -163,7 +177,7 @@ class ReaderDashboardController extends Controller
                 'zoom_link' => array_key_exists('zoom_link', $data) ? $data['zoom_link'] : $booking->zoom_link,
             ]);
 
-            return response()->json($this->formatBooking($booking->refresh()->load(['user', 'service'])));
+            return response()->json($this->formatBooking($booking->refresh()->load(['user', 'service', 'latestPayment'])));
         });
     }
 
@@ -203,18 +217,34 @@ class ReaderDashboardController extends Controller
             return response()->json(['message' => 'Khong tim thay thong tin Reader.'], 404);
         }
 
-        $booking = Booking::where('reader_id', $reader->id)->findOrFail($id);
-        if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
-            return response()->json(['message' => 'Khong the huy lich nay.'], 422);
-        }
+        $booking = DB::transaction(function () use ($reader, $id, $data) {
+            $booking = Booking::where('reader_id', $reader->id)
+                ->lockForUpdate()
+                ->findOrFail($id);
 
-        $booking->update([
-            'status' => 'cancelled',
-            'payment_status' => $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status,
-            'cancelled_at' => now(),
-            'cancel_reason' => $data['cancel_reason'],
-            'cancelled_by' => 'reader',
-        ]);
+            if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
+                abort(422, 'Khong the huy lich nay.');
+            }
+
+            $pendingPayment = $booking->payments()
+                ->where('status', Payment::PENDING)
+                ->lockForUpdate()
+                ->first();
+
+            if ($pendingPayment) {
+                abort(409, 'Giao dich dang duoc xu ly. Vui long cho ket qua truoc khi huy lich.');
+            }
+
+            $booking->update([
+                'status' => 'cancelled',
+                'payment_status' => $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status,
+                'cancelled_at' => now(),
+                'cancel_reason' => $data['cancel_reason'],
+                'cancelled_by' => 'reader',
+            ]);
+
+            return $booking;
+        });
         app(NotificationService::class)->notifyAdmins('reader.booking.cancelled', 'Reader huy lich', ($reader->name ?? 'Reader') . ' da huy lich BK-' . str_pad($booking->id, 4, '0', STR_PAD_LEFT) . '. Ly do: ' . $data['cancel_reason'], '/bookings', [
             'booking_id' => $booking->id,
             'reader' => $reader->name,
@@ -359,6 +389,7 @@ class ReaderDashboardController extends Controller
             'completion_confirmed_at' => $booking->completion_confirmed_at?->toIso8601String(),
             'completion_disputed_at' => $booking->completion_disputed_at?->toIso8601String(),
             'payment_status' => $booking->payment_status,
+            'latest_payment_status' => $booking->latestPayment?->status,
             'zoom_link' => $booking->zoom_link,
             'note' => $booking->note,
             'cancel_reason' => $booking->cancel_reason,

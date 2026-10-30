@@ -15,6 +15,8 @@ class AvailabilityController extends Controller
 {
     public function getBusySlots(Request $request, $readerId)
     {
+        Reader::where('is_active', true)->findOrFail($readerId);
+
         $request->validate([
             'month' => 'nullable|date_format:Y-m',
         ]);
@@ -44,8 +46,6 @@ class AvailabilityController extends Controller
                     'end_time' => $end->format('H:i'),
                     'duration' => $booking->service->duration,
                     'service' => $booking->service->name,
-                    'status' => $booking->status,
-                    'payment_status' => $booking->payment_status,
                 ];
             })
             ->values();
@@ -60,8 +60,8 @@ class AvailabilityController extends Controller
             'service_id' => 'required|exists:services,id',
         ]);
 
-        $service = Service::findOrFail($request->service_id);
-        $reader = Reader::findOrFail($readerId);
+        $service = Service::where('is_active', true)->findOrFail($request->service_id);
+        $reader = Reader::where('is_active', true)->findOrFail($readerId);
         $newStart = Carbon::parse($request->booked_at, config('app.timezone'));
 
         if (!app(ReaderAvailabilityService::class)->isSlotAllowed($reader, $newStart, (int) $service->duration)) {

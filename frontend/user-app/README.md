@@ -25,7 +25,7 @@ This project uses Vite environment variables for client-side configuration. Copy
 cp .env.example .env.local
 ```
 
-2. Edit `.env.local` and set `VITE_API_BASE_URL` to your API endpoint.
+2. Edit `.env.local` and set `VITE_API_URL` to your API endpoint.
 
 3. Restart the dev server if it's running (`npm run dev`).
 

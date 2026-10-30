@@ -13,6 +13,7 @@ use App\Models\Payment;
 use App\Services\Booking\BookingCompletionService;
 use App\Services\Booking\CreateBookingService;
 use App\Services\NotificationService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
@@ -48,23 +49,35 @@ class BookingController extends Controller
             'cancel_reason' => 'nullable|string|max:1000',
         ]);
 
-        $booking = Booking::where('user_id', $request->user()->id)
-            ->where('id', $id)
-            ->firstOrFail();
+        $booking = DB::transaction(function () use ($request, $id, $data) {
+            $booking = Booking::where('user_id', $request->user()->id)
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if (!in_array($booking->status, ['pending', 'confirmed'])) {
-            return response()->json(['message' => 'Không thể huỷ lịch này.'], 422);
-        }
+            if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
+                abort(422, 'Khong the huy lich nay.');
+            }
 
-        $booking->load(['user', 'reader', 'service']);
+            $pendingPayment = $booking->payments()
+                ->where('status', Payment::PENDING)
+                ->lockForUpdate()
+                ->first();
 
-        $booking->update([
-            'status'       => 'cancelled',
-            'payment_status' => $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status,
-            'cancelled_at' => now(),
-            'cancel_reason' => $data['cancel_reason'] ?? null,
-            'cancelled_by' => 'customer',
-        ]);
+            if ($pendingPayment) {
+                abort(409, 'Giao dich dang duoc xu ly. Vui long cho ket qua truoc khi huy lich.');
+            }
+
+            $booking->update([
+                'status' => 'cancelled',
+                'payment_status' => $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status,
+                'cancelled_at' => now(),
+                'cancel_reason' => $data['cancel_reason'] ?? null,
+                'cancelled_by' => 'customer',
+            ]);
+
+            return $booking->load(['user', 'reader', 'service']);
+        });
 
         try {
             Mail::to($booking->user->email)->queue(new BookingCancelled($booking));
@@ -125,6 +138,9 @@ class BookingController extends Controller
         ]);
 
         try {
+            $vnpay = null;
+            $momo = null;
+
             if ($data['payment_method'] === 'vnpay' && !AppSetting::getBool('payment_vnpay_enabled', true)) {
                 return response()->json(['message' => 'Phuong thuc thanh toan VNPay dang tam tat.'], 422);
             }
@@ -168,22 +184,36 @@ class BookingController extends Controller
                 return response()->json(['message' => 'Booking đã hết hạn thanh toán.'], 410);
             }
 
-            $payment = $service->create($booking, $data['payment_method']);
+            if ($data['payment_method'] === 'bank' && empty(trim($data['proof_code'] ?? ''))) {
+                return response()->json(['message' => 'Vui lòng nhập mã giao dịch hoặc thời gian chuyển tiền.'], 422);
+            }
 
             if ($data['payment_method'] === 'vnpay') {
                 $vnpay = app(\App\Services\Payment\VNPayService::class);
+                $missing = app(\App\Services\Payment\PaymentGatewayConfig::class)->missingVnpay();
+                if ($missing !== []) {
+                    throw new \RuntimeException('VNPay gateway is not configured: ' . implode(', ', $missing));
+                }
+            }
+
+            if ($data['payment_method'] === 'momo') {
+                $momo = app(\App\Services\Payment\MoMoService::class);
+                $missing = $momo->missingConfig();
+                if ($missing !== []) {
+                    throw new \RuntimeException('MoMo gateway is not configured: ' . implode(', ', $missing));
+                }
+            }
+
+            $payment = $service->create($booking, $data['payment_method']);
+
+            if ($data['payment_method'] === 'vnpay') {
                 $url = $vnpay->createUrl($booking, $payment);
                 return response()->json(['payment_url' => $url]);
             }
 
             if ($data['payment_method'] === 'momo') {
-                $momo = app(\App\Services\Payment\MoMoService::class);
                 $url = $momo->createUrl($booking, $payment);
                 return response()->json(['payment_url' => $url]);
-            }
-
-            if ($data['payment_method'] === 'bank' && empty(trim($data['proof_code'] ?? ''))) {
-                return response()->json(['message' => 'Vui long nhap ma giao dich hoac thoi gian chuyen tien.'], 422);
             }
 
             $booking->update([

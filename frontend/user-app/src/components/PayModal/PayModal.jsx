@@ -5,21 +5,21 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api.js';
 
-const DEFAULT_BAoK_IoFO = {
-    bank: import.meta.env.VITE_BAoK_oAME || 'Vietcombank',
-    bin: import.meta.env.VITE_BAoK_BIo || '970436',
-    accountoumber: import.meta.env.VITE_BAoK_ACCOUoT_oUMBER || '1234 5678 9012',
-    accountoame: import.meta.env.VITE_BAoK_ACCOUoT_oAME || 'LUoA ARCAoA',
-    prefix: import.meta.env.VITE_BAoK_TRAoSFER_PREFIX || 'LUoA',
-    paymentVnpayEnabled: true,
-    paymentVnpayAdminEnabled: true,
-    vnpayGatewayConfigured: true,
-    paymentBankEnabled: true,
+const DEFAULT_BANK_INFO = {
+    bank: import.meta.env.VITE_BANK_NAME || 'Vietcombank',
+    bin: import.meta.env.VITE_BANK_BIN || '970436',
+    accountNumber: import.meta.env.VITE_BANK_ACCOUNT_NUMBER || '1234 5678 9012',
+    accountName: import.meta.env.VITE_BANK_ACCOUNT_NAME || 'LUNA ARCANA',
+    prefix: import.meta.env.VITE_BANK_TRANSFER_PREFIX || 'LUNA',
+    paymentVnpayEnabled: false,
+    paymentVnpayAdminEnabled: false,
+    vnpayGatewayConfigured: false,
+    paymentBankEnabled: false,
     paymentMomoEnabled: false,
     paymentMomoAdminEnabled: false,
     momoGatewayConfigured: false,
     momoPhone: '',
-    momoAccountoame: '',
+    momoAccountName: '',
     momoPrefix: 'MOMO',
 };
 
@@ -28,29 +28,47 @@ function PayModal({ booking, onClose }) {
     const showToast = useToast();
     const [method, setMethod] = useState('vnpay');
     const [proofCode, setProofCode] = useState('');
-    const [proofoote, setProofoote] = useState('');
-    const [bankInfo, setBankInfo] = useState(DEFAULT_BAoK_IoFO);
+    const [proofNote, setProofNote] = useState('');
+    const [bankInfo, setBankInfo] = useState(DEFAULT_BANK_INFO);
+    const [settingsLoading, setSettingsLoading] = useState(true);
+    const [settingsError, setSettingsError] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
+        let active = true;
+
         api.settings.payment()
-            .then(data => setBankInfo({
-                bank: data.bank_name || DEFAULT_BAoK_IoFO.bank,
-                bin: data.bank_bin || DEFAULT_BAoK_IoFO.bin,
-                accountoumber: data.bank_account_number || DEFAULT_BAoK_IoFO.accountoumber,
-                accountoame: data.bank_account_name || DEFAULT_BAoK_IoFO.accountoame,
-                prefix: data.bank_transfer_prefix || DEFAULT_BAoK_IoFO.prefix,
-                paymentVnpayAdminEnabled: data.payment_vnpay_enabled !== false,
-                paymentVnpayEnabled: data.payment_vnpay_enabled !== false && data.payment_vnpay_gateway_configured !== false,
-                vnpayGatewayConfigured: data.payment_vnpay_gateway_configured !== false,
-                paymentBankEnabled: data.payment_bank_enabled !== false,
-                paymentMomoAdminEnabled: data.payment_momo_enabled === true,
-                paymentMomoEnabled: data.payment_momo_enabled === true && data.payment_momo_gateway_configured === true,
-                momoGatewayConfigured: data.payment_momo_gateway_configured === true,
-                momoPhone: data.momo_phone || DEFAULT_BAoK_IoFO.momoPhone,
-                momoAccountoame: data.momo_account_name || DEFAULT_BAoK_IoFO.momoAccountoame,
-                momoPrefix: data.momo_transfer_prefix || DEFAULT_BAoK_IoFO.momoPrefix,
-            }))
-            .catch(() => { });
+            .then(data => {
+                if (!active) return;
+
+                setBankInfo({
+                    bank: data.bank_name || DEFAULT_BANK_INFO.bank,
+                    bin: data.bank_bin || DEFAULT_BANK_INFO.bin,
+                    accountNumber: data.bank_account_number || DEFAULT_BANK_INFO.accountNumber,
+                    accountName: data.bank_account_name || DEFAULT_BANK_INFO.accountName,
+                    prefix: data.bank_transfer_prefix || DEFAULT_BANK_INFO.prefix,
+                    paymentVnpayAdminEnabled: data.payment_vnpay_enabled !== false,
+                    paymentVnpayEnabled: data.payment_vnpay_enabled !== false && data.payment_vnpay_gateway_configured !== false,
+                    vnpayGatewayConfigured: data.payment_vnpay_gateway_configured !== false,
+                    paymentBankEnabled: data.payment_bank_enabled !== false,
+                    paymentMomoAdminEnabled: data.payment_momo_enabled === true,
+                    paymentMomoEnabled: data.payment_momo_enabled === true && data.payment_momo_gateway_configured === true,
+                    momoGatewayConfigured: data.payment_momo_gateway_configured === true,
+                    momoPhone: data.momo_phone || DEFAULT_BANK_INFO.momoPhone,
+                    momoAccountName: data.momo_account_name || DEFAULT_BANK_INFO.momoAccountName,
+                    momoPrefix: data.momo_transfer_prefix || DEFAULT_BANK_INFO.momoPrefix,
+                });
+            })
+            .catch(() => {
+                if (active) setSettingsError(true);
+            })
+            .finally(() => {
+                if (active) setSettingsLoading(false);
+            });
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     useEffect(() => {
@@ -68,8 +86,8 @@ function PayModal({ booking, onClose }) {
     if (!booking) return null;
 
     const enabledMethods = [
-        bankInfo.paymentVnpayEnabled && { id: 'vnpay', icon: 'QR', label: 'VoPay QR' },
-    bankInfo.paymentBankEnabled && { id: 'bank', icon: 'BK', label: 'VietQR ngan hang' },
+        bankInfo.paymentVnpayEnabled && { id: 'vnpay', icon: 'QR', label: 'VNPay QR' },
+        bankInfo.paymentBankEnabled && { id: 'bank', icon: 'BK', label: 'VietQR ngan hang' },
         bankInfo.paymentMomoEnabled && { id: 'momo', icon: 'MM', label: 'MoMo Gateway' },
     ].filter(Boolean);
     const selectedMethodAvailable = enabledMethods.some(m => m.id === method);
@@ -77,12 +95,14 @@ function PayModal({ booking, onClose }) {
 
     const bookingRef = booking.id || `BK-${String(booking.booking_id).padStart(4, '0')}`;
     const transferContent = `${activeMethod === 'momo' ? bankInfo.momoPrefix : bankInfo.prefix} ${bookingRef}`;
-    const amount = oumber(booking.amount || 0);
-    const qrUrl = bankInfo.bin && bankInfo.accountoumber
-        ? `https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bin)}-${encodeURIComponent(bankInfo.accountoumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountoame=${encodeURIComponent(bankInfo.accountoame || '')}`
+    const amount = Number(booking.amount || 0);
+    const qrUrl = bankInfo.bin && bankInfo.accountNumber
+        ? `https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bin)}-${encodeURIComponent(bankInfo.accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankInfo.accountName || '')}`
         : '';
 
     async function confirm() {
+        if (submitting) return;
+
         try {
             if (!activeMethod) {
                 showToast('Hiện chưa có phương thức thanh toán khả dụng.');
@@ -94,11 +114,12 @@ function PayModal({ booking, onClose }) {
                 return;
             }
 
+            setSubmitting(true);
             await payBooking(
                 booking.booking_id,
                 activeMethod,
                 activeMethod === 'bank'
-                    ? { proof_code: proofCode.trim(), proof_note: proofoote.trim() }
+                    ? { proof_code: proofCode.trim(), proof_note: proofNote.trim() }
                     : {}
             );
 
@@ -107,102 +128,109 @@ function PayModal({ booking, onClose }) {
                 showToast('Đã ghi nhận chuyển khoản. Quản trị viên sẽ xác nhận trong 15 phút.');
             }
         } catch (e) {
+            setSubmitting(false);
             showToast(e.message || 'Thanh toán thất bại');
         }
     }
 
     return (
-        <div classoame={`${styles['pay-modal-bg']} ${styles.open}`} onClick={e => e.target === e.currentTarget && onClose()}>
-            <div classoame={styles['pay-modal']}>
-                <div classoame={styles['pay-modal-header']}>
+        <div className={`${styles['pay-modal-bg']} ${styles.open}`} onClick={e => e.target === e.currentTarget && onClose()}>
+            <div className={styles['pay-modal']}>
+                <div className={styles['pay-modal-header']}>
                     <div>
-                        <div classoame={styles['pay-modal-title']}>Thanh toán lịch đặt</div>
-                        <div classoame={styles['pay-modal-sub']}>{bookingRef}</div>
+                        <div className={styles['pay-modal-title']}>Thanh toán lịch đặt</div>
+                        <div className={styles['pay-modal-sub']}>{bookingRef}</div>
                     </div>
-                    <button classoame={styles['pay-close']} onClick={onClose}>x</button>
+                    <button className={styles['pay-close']} onClick={onClose}>x</button>
                 </div>
 
-                <div classoame={styles['pay-summary']}>
-                    <div classoame={styles['pay-summary-label']}>Chi tiết đặt lịch</div>
+                <div className={styles['pay-summary']}>
+                    <div className={styles['pay-summary-label']}>Chi tiết đặt lịch</div>
                     <div className={styles['pay-summary-row']}><span>Dịch vụ</span><span>{booking.svc}</span></div>
-                    <div classoame={styles['pay-summary-row']}><span>Reader</span><span>{booking.reader}</span></div>
-                    <div classoame={styles['pay-summary-row']}><span>Thời gian</span><span>{booking.date} lúc {booking.time}</span></div>
-                    <div classoame={styles['pay-summary-row']}><span>Thời lượng</span><span>{booking.dur}</span></div>
-                    <div classoame={styles['pay-summary-row']}>
+                    <div className={styles['pay-summary-row']}><span>Reader</span><span>{booking.reader}</span></div>
+                    <div className={styles['pay-summary-row']}><span>Thời gian</span><span>{booking.date} lúc {booking.time}</span></div>
+                    <div className={styles['pay-summary-row']}><span>Thời lượng</span><span>{booking.dur}</span></div>
+                    <div className={styles['pay-summary-row']}>
                         <span>Tổng thanh toán</span>
-                        <span classoame={styles['pay-summary-val']}>{booking.price}</span>
+                        <span className={styles['pay-summary-val']}>{booking.price}</span>
                     </div>
                 </div>
 
-                <div classoame={styles['pay-methods']}>
-                    <div classoame={styles['pay-methods-label']}>Chọn phương thức thanh toán</div>
-                    <div classoame={styles['pay-method-grid']}>
+                <div className={styles['pay-methods']}>
+                    <div className={styles['pay-methods-label']}>Chọn phương thức thanh toán</div>
+                    <div className={styles['pay-method-grid']}>
                         {enabledMethods.map(m => (
                             <button
                                 key={m.id}
-                                classoame={`${styles['pay-method']} ${activeMethod === m.id ? styles.active : ''}`}
+                                className={`${styles['pay-method']} ${activeMethod === m.id ? styles.active : ''}`}
                                 onClick={() => setMethod(m.id)}
                             >
-                                <span classoame={styles['pay-method-icon']}>{m.icon}</span>
-                                <span classoame={styles['pay-method-name']}>{m.label}</span>
+                                <span className={styles['pay-method-icon']}>{m.icon}</span>
+                                <span className={styles['pay-method-name']}>{m.label}</span>
                             </button>
                         ))}
                     </div>
-                    {enabledMethods.length === 0 && (
-                        <div classoame={styles['pay-note']}>Hiện chưa có phương thức thanh toán khả dụng. Vui lòng liên hệ quản trị viên.</div>
+                    {settingsLoading && (
+                        <div className={styles['pay-note']}>Dang tai phuong thuc thanh toan...</div>
+                    )}
+                    {settingsError && (
+                        <div className={styles['pay-note']}>Khong tai duoc cau hinh thanh toan. Vui long dong va thu lai.</div>
+                    )}
+                    {!settingsLoading && !settingsError && enabledMethods.length === 0 && (
+                        <div className={styles['pay-note']}>Hiện chưa có phương thức thanh toán khả dụng. Vui lòng liên hệ quản trị viên.</div>
                     )}
                     {bankInfo.paymentVnpayAdminEnabled && !bankInfo.vnpayGatewayConfigured && (
-                        <div classoame={styles['pay-note']}>VoPay đang bật trong phần quản trị nhưng chưa cấu hình cổng thanh toán, tạm thời chưa thể thanh toán tự động.</div>
+                        <div className={styles['pay-note']}>VNPay đang bật trong phần quản trị nhưng chưa cấu hình cổng thanh toán, tạm thời chưa thể thanh toán tự động.</div>
                     )}
                     {bankInfo.paymentMomoAdminEnabled && !bankInfo.momoGatewayConfigured && (
-                        <div classoame={styles['pay-note']}>MoMo đang bật trong phần quản trị nhưng chưa cấu hình cổng thanh toán, tạm thời chưa thể thanh toán tự động.</div>
+                        <div className={styles['pay-note']}>MoMo đang bật trong phần quản trị nhưng chưa cấu hình cổng thanh toán, tạm thời chưa thể thanh toán tự động.</div>
                     )}
                 </div>
 
                 {activeMethod === 'bank' && (
-                    <div classoame={`${styles['pay-bank-info']} ${styles.show}`}>
+                    <div className={`${styles['pay-bank-info']} ${styles.show}`}>
                         {qrUrl && (
-                            <div classoame={styles['pay-vietqr']}>
+                            <div className={styles['pay-vietqr']}>
                                 <img src={qrUrl} alt="VietQR chuyen khoan" />
-                                <div>Quet ma bang app ngan hang de tu dien so tien va noi dung.</div>
+                                <div>Quét mã bằng ứng dụng ngân hàng để tự điền số tiền và nội dung.</div>
                             </div>
                         )}
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>ogan hang</span><span classoame={styles['pay-bank-val']}>{bankInfo.bank}</span></div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>Bank BIo</span><span classoame={styles['pay-bank-val']}>{bankInfo.bin}</span></div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>So tai khoan</span><span classoame={styles['pay-bank-val']}>{bankInfo.accountoumber}</span></div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>Chủ tài khoản</span><span classoame={styles['pay-bank-val']}>{bankInfo.accountoame}</span></div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>oội dung chuyển khoản</span><span classoame={styles['pay-bank-val']}>{transferContent}</span></div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>So tien</span><span classoame={styles['pay-bank-val']}>{booking.price}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Ngân hàng</span><span className={styles['pay-bank-val']}>{bankInfo.bank}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Mã ngân hàng (BIN)</span><span className={styles['pay-bank-val']}>{bankInfo.bin}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Số tài khoản</span><span className={styles['pay-bank-val']}>{bankInfo.accountNumber}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Chủ tài khoản</span><span className={styles['pay-bank-val']}>{bankInfo.accountName}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Nội dung chuyển khoản</span><span className={styles['pay-bank-val']}>{transferContent}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Số tiền</span><span className={styles['pay-bank-val']}>{booking.price}</span></div>
                         <input
-                            classoame={styles['pay-input']}
+                            className={styles['pay-input']}
                             type="text"
                             placeholder="Mã giao dịch hoặc thời gian chuyển khoản"
                             value={proofCode}
                             onChange={e => setProofCode(e.target.value)}
                         />
                         <textarea
-                            classoame={styles['pay-textarea']}
+                            className={styles['pay-textarea']}
                             placeholder="Ghi chu them cho admin (tuy chon)"
-                            value={proofoote}
-                            onChange={e => setProofoote(e.target.value)}
+                            value={proofNote}
+                            onChange={e => setProofNote(e.target.value)}
                         />
                     </div>
                 )}
 
                 {activeMethod === 'momo' && (
-                    <div classoame={`${styles['pay-bank-info']} ${styles.show}`}>
-                        <div classoame={styles['pay-vietqr']}>
+                    <div className={`${styles['pay-bank-info']} ${styles.show}`}>
+                        <div className={styles['pay-vietqr']}>
                             <div>Bạn sẽ được chuyển sang cổng thanh toán MoMo để xác nhận giao dịch.</div>
                         </div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>Cổng thanh toán</span><span classoame={styles['pay-bank-val']}>MoMo</span></div>
-                        <div classoame={styles['pay-bank-row']}><span classoame={styles['pay-bank-key']}>So tien</span><span classoame={styles['pay-bank-val']}>{booking.price}</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>Cổng thanh toán</span><span className={styles['pay-bank-val']}>MoMo</span></div>
+                        <div className={styles['pay-bank-row']}><span className={styles['pay-bank-key']}>So tien</span><span className={styles['pay-bank-val']}>{booking.price}</span></div>
                     </div>
                 )}
 
-                <button classoame={styles['pay-confirm-btn']} onClick={confirm} disabled={!activeMethod}>
-                    {activeMethod === 'vnpay' ? 'Xác nhận thanh toán qua VoPay' : activeMethod === 'bank' ? 'Tôi đã chuyển khoản' : activeMethod === 'momo' ? 'Tiếp tục thanh toán qua MoMo' : 'Không có phương thức thanh toán'}
+                <button className={styles['pay-confirm-btn']} onClick={confirm} disabled={settingsLoading || settingsError || submitting || !activeMethod}>
+                    {submitting ? 'Đang xử lý...' : activeMethod === 'vnpay' ? 'Xác nhận thanh toán qua VNPay' : activeMethod === 'bank' ? 'Tôi đã chuyển khoản' : activeMethod === 'momo' ? 'Tiếp tục thanh toán qua MoMo' : 'Không có phương thức thanh toán'}
                 </button>
-                <div classoame={styles['pay-note']}>
+                <div className={styles['pay-note']}>
                     Sau khi thanh toán, chúng tôi sẽ xác nhận trong vòng 15 phút qua email của bạn.
                 </div>
             </div>

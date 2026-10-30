@@ -282,7 +282,7 @@ export default function ReaderPortal() {
                                                 {row.status === 'pending' && <button type="button" className="ic-btn ok" title="Xac nhan" disabled={actionLoading === `confirm-${row.id}`} onClick={() => runAction(row, 'confirm')}>✓</button>}
                                                 {row.status === 'confirmed' && row.payment_status === 'paid' && <button type="button" className="ic-btn ok" title="Hoan thanh" disabled={actionLoading === `complete-${row.id}`} onClick={() => runAction(row, 'complete')}>&#10003;&#10003;</button>}
                                                 {['pending', 'confirmed'].includes(row.status) && <button type="button" className="ic-btn" title="Sua" onClick={() => startEdit(row)}>✎</button>}
-                                                {['pending', 'confirmed'].includes(row.status) && <button type="button" className="ic-btn del" title="Huy" disabled={actionLoading === `cancel-${row.id}`} onClick={() => runAction(row, 'cancel')}>×</button>}
+                                                {['pending', 'confirmed'].includes(row.status) && <button type="button" className="ic-btn del" title="Huy" disabled={actionLoading === `cancel-${row.id}` || row.payment_status === 'pending_verification' || row.latest_payment_status === 'pending'} onClick={() => runAction(row, 'cancel')}>×</button>}
                                             </div>
                                         </td>
                                     </tr>
@@ -310,7 +310,7 @@ export default function ReaderPortal() {
                             )}
                             <div className="form-group">
                                 <label className="label">Dich vu *</label>
-                                <select className="sel" value={bookingForm.service_id} onChange={e => updateBookingForm('service_id', e.target.value)} required>
+                                <select className="sel" value={bookingForm.service_id} onChange={e => updateBookingForm('service_id', e.target.value)} required disabled={Boolean(editing && (editing.payment_status !== 'unpaid' || editing.latest_payment_status === 'pending'))}>
                                     <option value="">Chon dich vu</option>
                                     {services.map(service => <option key={service.id} value={service.id}>{service.name} - {service.duration} phut</option>)}
                                 </select>

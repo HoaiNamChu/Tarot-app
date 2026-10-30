@@ -103,9 +103,18 @@ function Booking() {
       return;
     }
 
+    let active = true;
     api.readers.getBusySlots(form.reader_id, busySlotMonth)
-      .then(data => setBusySlots(safeArray(data)))
-      .catch(() => setBusySlots([]));
+      .then(data => {
+        if (active) setBusySlots(safeArray(data));
+      })
+      .catch(() => {
+        if (active) setBusySlots([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [form.reader_id, busySlotMonth]);
 
   useEffect(() => {
@@ -114,14 +123,22 @@ function Booking() {
       return;
     }
 
+    let active = true;
     setSlotStatus('checking');
     const timer = setTimeout(() => {
       api.readers.checkSlot(form.reader_id, form.booked_at, form.service_id)
-        .then(res => setSlotStatus(res.available ? 'available' : 'busy'))
-        .catch(() => setSlotStatus(null));
+        .then(res => {
+          if (active) setSlotStatus(res.available ? 'available' : 'busy');
+        })
+        .catch(() => {
+          if (active) setSlotStatus(null);
+        });
     }, 600);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [form.reader_id, form.booked_at, form.service_id]);
 
   function handleChange(e) {

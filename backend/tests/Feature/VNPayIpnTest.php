@@ -122,13 +122,13 @@ class VNPayIpnTest extends TestCase
             ->assertOk()
             ->assertJson([
                 'RspCode' => '00',
-                'Message' => 'Booking is closed',
+                'Message' => 'Late payment captured; refund review required',
             ]);
 
-        $this->assertSame(Payment::EXPIRED, $payment->refresh()->status);
-        $this->assertSame('unpaid', $booking->refresh()->payment_status);
+        $this->assertSame(Payment::SUCCESS, $payment->refresh()->status);
+        $this->assertSame('refund_pending', $booking->refresh()->payment_status);
         $this->assertSame('cancelled', $booking->status);
-        $this->assertNull($booking->paid_at);
+        $this->assertNotNull($booking->paid_at);
     }
 
     public function test_late_success_ipn_does_not_reverse_refunded_booking(): void

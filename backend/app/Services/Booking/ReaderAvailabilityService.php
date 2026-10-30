@@ -22,7 +22,11 @@ class ReaderAvailabilityService
     {
         $rules = $reader->availabilityRules()->get();
         if ($rules->isEmpty()) {
-            return true;
+            $windowStart = $start->copy()->setTime(9, 0);
+            $windowEnd = $start->copy()->setTime(22, 0);
+            $end = $start->copy()->addMinutes($durationMinutes);
+
+            return $start->greaterThanOrEqualTo($windowStart) && $end->lessThanOrEqualTo($windowEnd);
         }
 
         $rule = $rules->firstWhere('weekday', $start->dayOfWeek);

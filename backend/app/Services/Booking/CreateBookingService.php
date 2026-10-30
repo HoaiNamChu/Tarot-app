@@ -19,8 +19,12 @@ class CreateBookingService
     public function execute(User $user, array $data, bool $notify = true): Booking
     {
         return DB::transaction(function () use ($user, $data, $notify) {
-            $reader = Reader::lockForUpdate()->findOrFail($data['reader_id']);
-            $service = Service::findOrFail($data['service_id']);
+            $reader = Reader::where('is_active', true)
+                ->lockForUpdate()
+                ->findOrFail($data['reader_id']);
+            $service = Service::where('is_active', true)
+                ->lockForUpdate()
+                ->findOrFail($data['service_id']);
             $newStart = Carbon::parse($data['booked_at']);
 
             app(BookingConflictService::class)->assertSlotIsFree($reader, $service, $newStart);

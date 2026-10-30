@@ -61,6 +61,41 @@ class CommonFailureTest extends TestCase
         $this->assertSame('unpaid', $booking->refresh()->payment_status);
     }
 
+    public function test_bank_payment_without_proof_does_not_create_a_pending_payment(): void
+    {
+        $user = User::factory()->create();
+        $booking = $this->makeBooking(['user_id' => $user->id]);
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/bookings/{$booking->id}/pay", [
+            'payment_method' => 'bank',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('payments', 0);
+        $this->assertSame('unpaid', $booking->refresh()->payment_status);
+    }
+
+    public function test_unconfigured_vnpay_does_not_create_a_pending_payment(): void
+    {
+        config([
+            'vnpay.tmn_code' => null,
+            'vnpay.hash_secret' => null,
+            'vnpay.url' => null,
+            'vnpay.return_url' => null,
+        ]);
+        $user = User::factory()->create();
+        $booking = $this->makeBooking(['user_id' => $user->id]);
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/bookings/{$booking->id}/pay", [
+            'payment_method' => 'vnpay',
+        ])->assertUnprocessable()
+            ->assertJsonStructure(['missing_config']);
+
+        $this->assertDatabaseCount('payments', 0);
+        $this->assertSame('unpaid', $booking->refresh()->payment_status);
+    }
+
     public function test_expired_booking_payment_returns_410_and_cancels_booking(): void
     {
         $user = User::factory()->create();

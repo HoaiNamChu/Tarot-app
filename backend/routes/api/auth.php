@@ -10,7 +10,7 @@ Route::prefix('auth')->group(function () {
     $sessionThrottle = config('auth_limits.session', '240,1');
 
     Route::post('/register', [AuthController::class, 'register'])->middleware("throttle:$registerThrottle");
-    Route::post('/login', [AuthController::class, 'login'])->middleware("throttle:$loginThrottle");
+    Route::post('/login', [AuthController::class, 'login'])->middleware(["throttle:$loginThrottle", 'throttle:login-email']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware("throttle:$passwordThrottle");
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware("throttle:$passwordThrottle");
 
