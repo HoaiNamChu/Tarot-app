@@ -2,12 +2,8 @@ import { useEffect, useRef } from 'react';
 
 import styles from './Home.module.css';
 
-import Booking from '../components/Booking/Booking.jsx';
-import FreeReading from '../components/FreeReading/FreeReading.jsx';
 import Header from "../components/Header/Header.jsx";
-import Readers from '../components/Readers/Readers.jsx';
-import Services from '../components/Services/Services.jsx';
-import Testi from '../components/Testi/Testi.jsx';
+import FreeReading from '../components/FreeReading/FreeReading.jsx';
 
 function Home() {
   const canvasRef = useRef(null);
@@ -102,10 +98,6 @@ function Home() {
 
       <Header />
       <FreeReading />
-      <Services />
-      <Readers />
-      <Booking />
-      <Testi />
     </>
   )
 }

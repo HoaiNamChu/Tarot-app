@@ -22,9 +22,9 @@ function Footer() {
                 <div className={styles['footer-col']}>
                     <h4 className={styles['footer-col-title']}>Khám phá</h4>
                     <ul className={styles.flinks}>
-                        <li><a href="/#services" className={styles['flinks-item']}>Dịch vụ</a></li>
-                        <li><a href="/#readers" className={styles['flinks-item']}>Readers</a></li>
-                        <li><a href="/#free-reading" className={styles['flinks-item']}>Rút bài miễn phí</a></li>
+                        <li><Link to={ROUTES.SERVICES} className={styles['flinks-item']}>Dịch vụ</Link></li>
+                        <li><Link to={ROUTES.READERS} className={styles['flinks-item']}>Readers</Link></li>
+                        <li><Link to={ROUTES.FREE_READING} className={styles['flinks-item']}>Rút bài miễn phí</Link></li>
                     </ul>
                 </div>
 

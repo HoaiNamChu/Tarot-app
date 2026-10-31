@@ -16,7 +16,7 @@ function safeArray(value) {
 function Booking() {
   const { isLoggedIn, openModal, refreshBookings } = useAuth();
   const showToast = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   const [readers, setReaders] = useState([]);
   const [services, setServices] = useState([]);
@@ -59,12 +59,6 @@ function Booking() {
         reader_id: readerId || '',
       }));
 
-      if (serviceId || readerId) {
-        setSearchParams({}, { replace: true });
-        setTimeout(() => {
-          document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
-        }, 150);
-      }
     }).catch(() => {
       if (!alive) return;
       setServices([]);
@@ -75,27 +69,7 @@ function Booking() {
     return () => {
       alive = false;
     };
-  }, [searchParams, setSearchParams]);
-
-  useEffect(() => {
-    const serviceId = searchParams.get('service');
-    const readerId = searchParams.get('reader');
-
-    if (!serviceId && !readerId) return;
-    if (!services.length && !readers.length) return;
-
-    setForm(p => ({
-      ...p,
-      ...(serviceId ? { service_id: serviceId } : {}),
-      ...(readerId ? { reader_id: readerId } : {}),
-    }));
-
-    setSearchParams({}, { replace: true });
-
-    setTimeout(() => {
-      document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
-    }, 150);
-  }, [searchParams, services, readers, setSearchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!form.reader_id) {

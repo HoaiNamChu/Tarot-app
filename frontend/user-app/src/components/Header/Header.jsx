@@ -1,4 +1,6 @@
 import styles from './Header.module.css';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '../../constants/routes.js';
 
 function Header() {
   return (
@@ -35,12 +37,8 @@ function Header() {
         <h1>Lắng nghe<br /><em>vũ trụ</em><br />nói gì</h1>
         <p className={styles['hero-sub']}>Mỗi lá bài là một thông điệp. Mỗi buổi đọc là một hành trình khám phá nội tâm và định hướng tương lai.</p>
         <div className={styles['hero-btns']}>
-            <a href="#booking" className={styles['btn-primary']}>Đặt lịch ngay</a>
+            <Link to={ROUTES.BOOKING} className={styles['btn-primary']}>Đặt lịch ngay</Link>
             <a href="#free-reading" className={styles['btn-ghost']}>Rút bài miễn phí</a>
-        </div>
-        <div className={styles['scroll-hint']}>
-            <span>Scroll</span>
-            <div className={styles['scroll-line']}></div>
         </div>
     </header>
   );

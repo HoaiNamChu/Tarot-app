@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './FreeReading.module.css';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api.js';
+import { ROUTES } from '../../constants/routes.js';
 
 const tarotCards = [
   // ── MAJOR ARCANA ──
@@ -134,6 +136,7 @@ function useTypewriter(text, speed = 18) {
 }
 
 function FreeReading() {
+  const navigate = useNavigate();
   const showToast = useToast();
   const [question, setQuestion] = useState('');
   const [phase, setPhase] = useState('draw');
@@ -346,7 +349,7 @@ function FreeReading() {
               <div className={styles['result-cta-btns']}>
                 <button
                   className="btn-primary"
-                  onClick={() => window.location.href = '#booking'}
+                  onClick={() => navigate(ROUTES.BOOKING)}
                 >
                   Đặt Lịch Với Reader
                 </button>

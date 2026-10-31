@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Readers.module.css';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api.js';
+import { ROUTES } from '../../constants/routes.js';
 
 function Readers() {
   const showToast = useToast();
@@ -33,7 +34,7 @@ function Readers() {
 
   function selectReader(reader) {
     showToast(`Đã chọn reader: ${reader.name}`);
-    navigate(`/?reader=${reader.id}`);
+    navigate(`${ROUTES.BOOKING}?reader=${reader.id}`);
   }
 
   return (

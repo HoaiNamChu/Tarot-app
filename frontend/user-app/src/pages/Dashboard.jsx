@@ -561,7 +561,7 @@ function Dashboard() {
                             <div className={styles['bk-empty']}>
                                 <div className={styles['bk-empty-icon']}>LA</div>
                                 <div className={styles['bk-empty-text']}>Bạn chưa có lịch đặt sắp tới.</div>
-                                <button className="btn-primary" onClick={() => navigate('/#booking')}>Đặt lịch ngay</button>
+                                <button className="btn-primary" onClick={() => navigate('/booking')}>Đặt lịch ngay</button>
                             </div>
                         ) : upcoming.map(booking => renderBookingCard(booking, 'upcoming'))}
                     </div>

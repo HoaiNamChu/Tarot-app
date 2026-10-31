@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Services.module.css';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api.js';
+import { ROUTES } from '../../constants/routes.js';
 
 function Services() {
   const showToast = useToast();
@@ -33,7 +34,7 @@ function Services() {
 
   function selectService(svc) {
     showToast(`Đã chọn dịch vụ: ${svc.name}`);
-    navigate(`/?service=${svc.id}`);
+    navigate(`${ROUTES.BOOKING}?service=${svc.id}`);
   }
 
   return (
